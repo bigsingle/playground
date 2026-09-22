@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LCR共振 Q値比較測定アプリ</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #f8f9fa; padding: 15px; }
+    canvas { background: #ffffff; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px; }
+    .controls { margin: 10px 0; }
+    select, button { font-size: 1rem; padding: 8px 15px; margin: 5px; border-radius: 4px; }
+    button { background: #28a745; color: white; border: none; cursor: pointer; }
+    button:disabled { background: #ccc; }
+    .clear-btn { background: #dc3545; }
+  </style>
+</head>
+<body>
+  <h2>LCR共振 Q値比較測定システム</h2>
+  
+  <div class="controls">
+    <label for="labelSelect">測定パターン: </label>
+    <select id="labelSelect">
+      <option value="A: R=10Ω (高Q)">パターンA: R=10Ω (高Q)</option>
+      <option value="B: R=100Ω (標準)">パターンB: R=100Ω (標準)</option>
+      <option value="C: R=470Ω (低Q)">パターンC: R=470Ω (低Q)</option>
+      <option value="D: L=1mH/C=1uF (超低Q)">パターンD: L=1mH/C=1uF (超低Q)</option>
+    </select>
+    <button id="startBtn">測定実行</button>
+    <button id="clearBtn" class="clear-btn">グラフ消去</button>
+  </div>
+
+  <canvas id="chart" width="700" height="420"></canvas>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const labelSelect = document.getElementById('labelSelect');
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+
+    const startFreq = 1000;
+    const endFreq = 10000;
+    const stepFreq = 100;
+    
+    // 描画用の色リスト
+    const colors = ['#e63946', '#1d3557', '#2a9d8f', '#e76f51'];
+    let datasetHistory = []; // { label, color, points }
+
+    clearBtn.addEventListener('click', () => {
+      datasetHistory = [];
+      drawGraph();
+    });
+
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      const currentLabel = labelSelect.value;
+      const currentColor = colors[datasetHistory.length % colors.length];
+      const dataPoints = [];
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      let micStream;
+
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
+        });
+      } catch (err) {
+        alert('マイク入力の取得に失敗しました。');
+        startBtn.disabled = false;
+        return;
+      }
+
+      const micInput = audioCtx.createMediaStreamSource(micStream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      micInput.connect(analyser);
+
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.connect(audioCtx.destination);
+      oscillator.start();
+
+      let currentFreq = startFreq;
+      const interval = setInterval(() => {
+        if (currentFreq > endFreq) {
+          clearInterval(interval);
+          oscillator.stop();
+          micStream.getTracks().forEach(track => track.stop());
+          
+          datasetHistory.push({ label: currentLabel, color: currentColor, points: dataPoints });
+          drawGraph();
+          startBtn.disabled = false;
+          return;
+        }
+
+        oscillator.frequency.setValueAtTime(currentFreq, audioCtx.currentTime);
+
+        setTimeout(() => {
+          const buffer = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(buffer);
+          let sumSquares = 0;
+          for (let i = 0; i < buffer.length; i++) sumSquares += buffer[i] * buffer[i];
+          const rms = Math.sqrt(sumSquares / buffer.length);
+
+          dataPoints.push({ freq: currentFreq, amp: rms });
+          drawGraphTemp(dataPoints, currentColor);
+        }, 40);
+
+        currentFreq += stepFreq;
+      }, 80);
+    });
+
+    function drawGraphBase() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      
+      // 軸
+      ctx.beginPath();
+      ctx.moveTo(60, 360); ctx.lineTo(660, 360);
+      ctx.moveTo(60, 360); ctx.lineTo(60, 30);
+      ctx.stroke();
+
+      ctx.fillStyle = '#333';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('周波数 (Hz)', 330, 395);
+      ctx.fillText('電流振幅 (相対値)', 10, 20);
+
+      // 目盛り (2kHz, 5kHz, 8kHz, 10kHz)
+      [2000, 5000, 8000, 10000].forEach(f => {
+        const x = 60 + ((f - startFreq) / (endFreq - startFreq)) * 600;
+        ctx.fillText(`${f/1000}k`, x - 10, 375);
+      });
+    }
+
+    function drawGraph() {
+      drawGraphBase();
+
+      // 凡例描画
+      datasetHistory.forEach((ds, idx) => {
+        ctx.fillStyle = ds.color;
+        ctx.fillRect(480, 40 + idx * 20, 15, 10);
+        ctx.fillStyle = '#000';
+        ctx.fillText(ds.label, 505, 50 + idx * 20);
+
+        // プロット線
+        ctx.strokeStyle = ds.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ds.points.forEach((pt, i) => {
+          const x = 60 + ((pt.freq - startFreq) / (endFreq - startFreq)) * 600;
+          const y = 360 - (pt.amp / 0.5) * 320; // 縦軸スケール固定
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    function drawGraphTemp(currentPoints, color) {
+      drawGraph();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      currentPoints.forEach((pt, i) => {
+        const x = 60 + ((pt.freq - startFreq) / (endFreq - startFreq)) * 600;
+        const y = 360 - (pt.amp / 0.5) * 320;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    drawGraphBase();
+  </script>
+</body>
+</html>
