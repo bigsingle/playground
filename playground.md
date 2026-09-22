@@ -1,3 +1,5 @@
+```mermaid
+
 graph LR
     subgraph Signal_In [タブレット / 信号入力]
         out[Headphone Out L]
@@ -47,3 +49,5 @@ graph LR
     R_att2 --> gnd
     mic --> D1
     D1 --> gnd
+
+```
