@@ -3,175 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LCR共振 Q値比較測定アプリ</title>
+  <title>スマホ簡易電圧計（光起電力測定用）</title>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #f8f9fa; padding: 15px; }
-    canvas { background: #ffffff; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px; }
-    .controls { margin: 10px 0; }
-    select, button { font-size: 1rem; padding: 8px 15px; margin: 5px; border-radius: 4px; }
-    button { background: #28a745; color: white; border: none; cursor: pointer; }
+    body { font-family: sans-serif; text-align: center; background: #f0f4f8; padding: 20px; }
+    .card { background: white; max-width: 500px; margin: 0 auto; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    button { font-size: 1.2rem; padding: 10px 20px; border: none; border-radius: 6px; background: #007bff; color: white; cursor: pointer; }
     button:disabled { background: #ccc; }
-    .clear-btn { background: #dc3545; }
+    #meter { font-size: 3rem; font-weight: bold; color: #2d3748; margin: 20px 0; }
+    canvas { width: 100%; height: 150px; background: #222; border-radius: 6px; }
   </style>
 </head>
 <body>
-  <h2>LCR共振 Q値比較測定システム</h2>
-  
-  <div class="controls">
-    <label for="labelSelect">測定パターン: </label>
-    <select id="labelSelect">
-      <option value="A: R=10Ω (高Q)">パターンA: R=10Ω (高Q)</option>
-      <option value="B: R=100Ω (標準)">パターンB: R=100Ω (標準)</option>
-      <option value="C: R=470Ω (低Q)">パターンC: R=470Ω (低Q)</option>
-      <option value="D: L=1mH/C=1uF (超低Q)">パターンD: L=1mH/C=1uF (超低Q)</option>
-    </select>
-    <button id="startBtn">測定実行</button>
-    <button id="clearBtn" class="clear-btn">グラフ消去</button>
+  <div class="card">
+    <h2>LED光起電力 測定アプリ</h2>
+    <p>TRRSマイク端子からの信号レベルを計測します</p>
+    <button id="startBtn">計測開始</button>
+    
+    <div id="meter">0.00 mV</div>
+    <canvas id="waveform"></canvas>
   </div>
 
-  <canvas id="chart" width="700" height="420"></canvas>
-
   <script>
+    let audioCtx, analyser, dataArray, canvas, canvasCtx;
     const startBtn = document.getElementById('startBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const labelSelect = document.getElementById('labelSelect');
-    const canvas = document.getElementById('chart');
-    const ctx = canvas.getContext('2d');
-
-    const startFreq = 1000;
-    const endFreq = 10000;
-    const stepFreq = 100;
-    
-    // 描画用の色リスト
-    const colors = ['#e63946', '#1d3557', '#2a9d8f', '#e76f51'];
-    let datasetHistory = []; // { label, color, points }
-
-    clearBtn.addEventListener('click', () => {
-      datasetHistory = [];
-      drawGraph();
-    });
+    const meter = document.getElementById('meter');
 
     startBtn.addEventListener('click', async () => {
-      startBtn.disabled = true;
-      const currentLabel = labelSelect.value;
-      const currentColor = colors[datasetHistory.length % colors.length];
-      const dataPoints = [];
-
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      let micStream;
-
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        canvas = document.getElementById('waveform');
+        canvasCtx = canvas.getContext('2d');
+
+        startBtn.disabled = true;
+        startBtn.innerText = "計測中...";
+        draw();
       } catch (err) {
-        alert('マイク入力の取得に失敗しました。');
-        startBtn.disabled = false;
-        return;
+        alert("マイクへのアクセスが拒否されたか、デバイスが対応していません: " + err);
       }
-
-      const micInput = audioCtx.createMediaStreamSource(micStream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      micInput.connect(analyser);
-
-      const oscillator = audioCtx.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.connect(audioCtx.destination);
-      oscillator.start();
-
-      let currentFreq = startFreq;
-      const interval = setInterval(() => {
-        if (currentFreq > endFreq) {
-          clearInterval(interval);
-          oscillator.stop();
-          micStream.getTracks().forEach(track => track.stop());
-          
-          datasetHistory.push({ label: currentLabel, color: currentColor, points: dataPoints });
-          drawGraph();
-          startBtn.disabled = false;
-          return;
-        }
-
-        oscillator.frequency.setValueAtTime(currentFreq, audioCtx.currentTime);
-
-        setTimeout(() => {
-          const buffer = new Float32Array(analyser.fftSize);
-          analyser.getFloatTimeDomainData(buffer);
-          let sumSquares = 0;
-          for (let i = 0; i < buffer.length; i++) sumSquares += buffer[i] * buffer[i];
-          const rms = Math.sqrt(sumSquares / buffer.length);
-
-          dataPoints.push({ freq: currentFreq, amp: rms });
-          drawGraphTemp(dataPoints, currentColor);
-        }, 40);
-
-        currentFreq += stepFreq;
-      }, 80);
     });
 
-    function drawGraphBase() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = '#999';
-      ctx.lineWidth = 1;
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+
+      // 振幅の最大値（Peak-to-Peak）を計算し、簡易電圧スケールに変換
+      let maxVal = 0;
+      let minVal = 255;
+      for (let i = 0; i < dataArray.length; i++) {
+        if (dataArray[i] > maxVal) maxVal = dataArray[i];
+        if (dataArray[i] < minVal) minVal = dataArray[i];
+      }
       
-      // 軸
-      ctx.beginPath();
-      ctx.moveTo(60, 360); ctx.lineTo(660, 360);
-      ctx.moveTo(60, 360); ctx.lineTo(60, 30);
-      ctx.stroke();
+      // 8bit（0〜255、中心128）からの偏差を電圧（相対値mV）として換算
+      const amplitude = (maxVal - minVal) / 255.0; 
+      const estimatedmV = (amplitude * 1000).toFixed(1); // 簡易校正値
 
-      ctx.fillStyle = '#333';
-      ctx.font = '12px sans-serif';
-      ctx.fillText('周波数 (Hz)', 330, 395);
-      ctx.fillText('電流振幅 (相対値)', 10, 20);
+      meter.innerText = `${estimatedmV} mV`;
 
-      // 目盛り (2kHz, 5kHz, 8kHz, 10kHz)
-      [2000, 5000, 8000, 10000].forEach(f => {
-        const x = 60 + ((f - startFreq) / (endFreq - startFreq)) * 600;
-        ctx.fillText(`${f/1000}k`, x - 10, 375);
-      });
+      // 波形描画
+      canvasCtx.fillStyle = '#222';
+      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+      canvasCtx.lineWidth = 2;
+      canvasCtx.strokeStyle = '#00ffcc';
+      canvasCtx.beginPath();
+
+      const sliceWidth = canvas.width * 1.0 / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+        if (i === 0) canvasCtx.moveTo(x, y);
+        else canvasCtx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      canvasCtx.stroke();
     }
-
-    function drawGraph() {
-      drawGraphBase();
-
-      // 凡例描画
-      datasetHistory.forEach((ds, idx) => {
-        ctx.fillStyle = ds.color;
-        ctx.fillRect(480, 40 + idx * 20, 15, 10);
-        ctx.fillStyle = '#000';
-        ctx.fillText(ds.label, 505, 50 + idx * 20);
-
-        // プロット線
-        ctx.strokeStyle = ds.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ds.points.forEach((pt, i) => {
-          const x = 60 + ((pt.freq - startFreq) / (endFreq - startFreq)) * 600;
-          const y = 360 - (pt.amp / 0.5) * 320; // 縦軸スケール固定
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-      });
-    }
-
-    function drawGraphTemp(currentPoints, color) {
-      drawGraph();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      currentPoints.forEach((pt, i) => {
-        const x = 60 + ((pt.freq - startFreq) / (endFreq - startFreq)) * 600;
-        const y = 360 - (pt.amp / 0.5) * 320;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-
-    drawGraphBase();
   </script>
 </body>
 </html>
