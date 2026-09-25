@@ -1,32 +1,31 @@
 ```mermaid
 
-flowchart LR
-    subgraph LED_Side ["LED（被測定対象）"]
-        A_Anode["アノード (+)"]
-        A_Cathode["カソード (-)"]
+graph LR
+    subgraph LED_Board ["LED起電力 測定部"]
+        LED_Anode["LED アノード (+)"]
+        LED_Cathode["LED カソード (-)"]
     end
 
-    subgraph Dongle ["保護・分圧ドングル回路"]
-        R1["保護抵抗 R1 (10kΩ)"]
-        R2["分圧抵抗 R2 (1kΩ)"]
-        D1["保護ダイオード D1 (順方向)"]
-        D2["保護ダイオード D2 (逆方向)"]
+    subgraph Dongle_Circuit ["安全保護＆検出ドングル回路"]
+        R_Protect["保護抵抗 10kΩ"]
+        R_Detect["マイク検出抵抗 2.2kΩ"]
+        D1["保護ダイオード D1 (1N4148)"]
+        D2["保護ダイオード D2 (1N4148)"]
     end
 
-    subgraph TRRS_Plug ["3.5mm TRRSプラグ (CTIA規格)"]
-        MIC["MIC (Sleeve)"]
-        GND["GND (Ring2)"]
+    subgraph TRRS_Plug ["3.5mm TRRS プラグ (CTIA)"]
+        MIC["Sleeve (MIC端子)"]
+        GND["Ring2 (GND端子)"]
     end
 
-    A_Anode --> R1
-    R1 --> R2
-    R1 --> D1
-    R1 --> D2
-    R1 --> MIC
+    %% 配線接続
+    LED_Anode --> R_Protect
+    R_Protect --> MIC
+    
+    LED_Cathode --> GND
 
-    A_Cathode --> GND
-    R2 --> GND
-    D1 --> GND
-    D2 --> GND
-
+    %% 検出抵抗・保護ダイオード（並列接続）
+    MIC --- R_Detect --- GND
+    MIC --- D1 --- GND
+    GND --- D2 --- MIC
 ```
