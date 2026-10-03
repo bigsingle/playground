@@ -70,11 +70,13 @@
     }
 
     .wave-btn svg {
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       stroke: #455566;
       fill: none;
       stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .wave-btn.active {
@@ -129,19 +131,18 @@
       align-items: center;
     }
 
-    /* 各桁の矢印行（ボタンを大きく調整） */
     .arrows-row {
       display: flex;
       justify-content: flex-end;
       width: 100%;
-      padding-right: 32px; /* Hzラベル分の位置調整 */
+      padding-right: 32px;
       gap: 2px;
       margin: 2px 0;
     }
 
     .arrow-btn {
       width: 28px;
-      height: 32px; /* 高さ拡大 */
+      height: 32px;
       background: rgba(0, 240, 255, 0.05);
       border: 1px solid rgba(0, 240, 255, 0.15);
       border-radius: 4px;
@@ -166,12 +167,11 @@
     }
 
     .arrow-btn svg {
-      width: 20px; /* 矢印の表示サイズ拡大 */
+      width: 20px;
       height: 20px;
       fill: currentColor;
     }
 
-    /* メイン周波数ディスプレイ */
     .freq-display-box {
       display: flex;
       align-items: center;
@@ -219,7 +219,6 @@
       font-weight: bold;
     }
 
-    /* 再生ボタン */
     .play-btn {
       width: 54px;
       height: 54px;
@@ -256,7 +255,7 @@
     .sliders-section {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 18px;
       margin-bottom: 20px;
     }
 
@@ -281,6 +280,8 @@
       -webkit-appearance: none;
       width: 100%;
       background: transparent;
+      position: relative;
+      z-index: 2;
     }
 
     input[type=range]:focus {
@@ -306,20 +307,37 @@
       box-shadow: 0 0 10px rgba(0, 240, 255, 0.9);
     }
 
-    .slider-labels {
-      display: flex;
-      justify-content: space-between;
+    /* ログスケール目盛り付きラベル */
+    .log-ticks {
+      position: relative;
       width: 100%;
-      font-size: 11px;
-      color: #00f0ff;
+      height: 18px;
       margin-top: 4px;
+    }
+
+    .log-tick {
+      position: absolute;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #00f0ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .log-tick::before {
+      content: '';
+      width: 1px;
+      height: 4px;
+      background: #00f0ff66;
+      margin-bottom: 2px;
     }
 
     /* オシロスコープ (Canvas) */
     .scope-container {
       position: relative;
       background: #030507;
-      border: 1px solid #131b24;
+      border: 1px solid #1c2836;
       border-radius: 8px;
       overflow: hidden;
       margin-bottom: 12px;
@@ -336,7 +354,7 @@
       top: 6px;
       left: 10px;
       font-size: 11px;
-      color: #ff4a4a;
+      color: #ff5555;
       font-family: monospace;
       pointer-events: none;
     }
@@ -387,17 +405,19 @@
   <!-- 波形選択 & チャンネル選択 -->
   <div class="top-controls">
     <div class="waveform-selector">
+      <!-- 修正1: 正しい綺麗なサイン波 -->
       <button class="wave-btn active" data-wave="sine" title="サイン波">
-        <svg viewBox="0 0 24 24"><path d="M2 12 Q 6 4, 10 12 T 18 12 T 22 12"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 2 12 C 6 4, 6 20, 12 12 C 18 4, 18 20, 22 12"/></svg>
       </button>
+      <!-- 修正2: 方形波（｜￣｜＿｜） -->
       <button class="wave-btn" data-wave="square" title="矩形波">
-        <svg viewBox="0 0 24 24"><path d="M2 17 V 7 H 12 V 17 H 22"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 2 17 V 7 H 10 V 17 H 18 V 7 H 22"/></svg>
       </button>
       <button class="wave-btn" data-wave="triangle" title="三角波">
-        <svg viewBox="0 0 24 24"><path d="M2 17 L 7 7 L 17 17 L 22 7"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 2 17 L 7 7 L 17 17 L 22 7"/></svg>
       </button>
       <button class="wave-btn" data-wave="sawtooth" title="ノコギリ波">
-        <svg viewBox="0 0 24 24"><path d="M2 17 L 12 7 V 17 L 22 7"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 2 17 L 12 7 V 17 L 22 7"/></svg>
       </button>
     </div>
 
@@ -411,7 +431,6 @@
   <!-- 周波数各桁 +/- & メインディスプレイ & 再生ボタン -->
   <div class="digit-control-section">
     <div class="freq-box-wrapper">
-      <!-- 上矢印 (加算) -->
       <div class="arrows-row">
         <button class="arrow-btn" data-step="10000" title="+10000Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
         <button class="arrow-btn" data-step="1000" title="+1000Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
@@ -422,7 +441,6 @@
         <button class="arrow-btn" data-step="0.1" title="+0.1Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
       </div>
 
-      <!-- 周波数表示 -->
       <div class="freq-display-box">
         <span class="freq-label">周波数</span>
         <div class="freq-digits-container">
@@ -431,7 +449,6 @@
         <span class="freq-unit">Hz</span>
       </div>
 
-      <!-- 下矢印 (減算) -->
       <div class="arrows-row">
         <button class="arrow-btn" data-step="-10000" title="-10000Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
         <button class="arrow-btn" data-step="-1000" title="-1000Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
@@ -443,7 +460,6 @@
       </div>
     </div>
 
-    <!-- 再生ボタン -->
     <button id="playBtn" class="play-btn" title="再生/停止">
       <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
       <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -452,20 +468,23 @@
 
   <!-- スライダーエリア -->
   <div class="sliders-section">
-    <!-- 周波数設定スライダー -->
+    <!-- 修正3: ログスケール目盛り付きスライダー -->
     <div class="slider-group">
       <div class="slider-title">周波数設定</div>
       <div class="slider-wrapper">
         <input type="range" id="freqSlider" min="0" max="1" step="0.0001" value="0.822">
-        <div class="slider-labels">
-          <span>20 Hz</span>
-          <span>20000 Hz</span>
+        <div class="log-ticks">
+          <span class="log-tick" style="left: 0%;">20Hz</span>
+          <span class="log-tick" style="left: 23.3%;">100Hz</span>
+          <span class="log-tick" style="left: 56.6%;">1kHz</span>
+          <span class="log-tick" style="left: 90.0%;">10kHz</span>
+          <span class="log-tick" style="left: 100%;">20kHz</span>
         </div>
       </div>
     </div>
 
     <!-- システム音量スライダー -->
-    <div class="slider-group">
+    <div class="slider-group" style="margin-top: 8px;">
       <div class="slider-title">システム音量</div>
       <div class="slider-wrapper">
         <input type="range" id="volSlider" min="0" max="1" step="0.01" value="0.3">
@@ -671,7 +690,7 @@
   });
 
   // -------------------------------------------------------------
-  // Canvas オシロスコープ描画 (ゼロクロス・トリガー検知付き)
+  // Canvas オシロスコープ描画 (視認性アップ目盛り付き)
   // -------------------------------------------------------------
   function resizeCanvas() {
     scopeCanvas.width = scopeCanvas.clientWidth;
@@ -690,12 +709,14 @@
     canvasCtx.fillStyle = '#030507';
     canvasCtx.fillRect(0, 0, width, height);
 
-    // グリッド線
-    canvasCtx.strokeStyle = '#0f1722';
-    canvasCtx.lineWidth = 1;
-
+    // 修正4: グリッド線（目盛り）の明るさ・太さを調整し視認性を大幅向上
     const gridX = 10;
     const gridY = 4;
+
+    // 縦横格子線
+    canvasCtx.strokeStyle = '#1e2c3d';
+    canvasCtx.lineWidth = 1;
+
     for (let i = 1; i < gridX; i++) {
       const x = (width / gridX) * i;
       canvasCtx.beginPath();
@@ -711,6 +732,14 @@
       canvasCtx.stroke();
     }
 
+    // センター軸線 (少し明るく強調)
+    canvasCtx.strokeStyle = '#2b3f57';
+    canvasCtx.lineWidth = 1.5;
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(0, height / 2);
+    canvasCtx.lineTo(width, height / 2);
+    canvasCtx.stroke();
+
     // 周期計算表示 (T = 1/f)
     const periodMs = (1 / currentFreq) * 1000;
     let pStr = periodMs < 1 ? `${(periodMs * 1000).toFixed(2)}µs` : `${periodMs.toFixed(2)}ms`;
@@ -723,7 +752,7 @@
       const dataArray = new Uint8Array(bufferLength);
       analyserNode.getByteTimeDomainData(dataArray);
 
-      // 【ゼロクロス・トリガー検知】
+      // ゼロクロス・トリガー検知
       let triggerOffset = 0;
       for (let i = 0; i < bufferLength / 2; i++) {
         if (dataArray[i] < 128 && dataArray[i + 1] >= 128) {
