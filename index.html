@@ -48,7 +48,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .waveform-selector {
@@ -129,40 +129,45 @@
       align-items: center;
     }
 
-    /* 各桁の矢印行 */
+    /* 各桁の矢印行（ボタンを大きく調整） */
     .arrows-row {
       display: flex;
       justify-content: flex-end;
       width: 100%;
       padding-right: 32px; /* Hzラベル分の位置調整 */
       gap: 2px;
-      margin: 4px 0;
+      margin: 2px 0;
     }
 
     .arrow-btn {
-      width: 26px;
-      height: 20px;
-      background: transparent;
-      border: none;
-      color: #ffffff;
+      width: 28px;
+      height: 32px; /* 高さ拡大 */
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 4px;
+      color: #00f0ff;
       cursor: pointer;
       display: flex;
       justify-content: center;
       align-items: center;
-      transition: opacity 0.15s, transform 0.15s;
+      transition: all 0.15s;
     }
 
     .arrow-btn:hover {
-      color: #00f0ff;
+      background: rgba(0, 240, 255, 0.2);
+      border-color: #00f0ff;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
     }
 
     .arrow-btn:active {
-      transform: scale(0.85);
+      transform: scale(0.9);
+      background: #00f0ff;
+      color: #000000;
     }
 
     .arrow-btn svg {
-      width: 16px;
-      height: 16px;
+      width: 20px; /* 矢印の表示サイズ拡大 */
+      height: 20px;
       fill: currentColor;
     }
 
@@ -175,6 +180,7 @@
       border-radius: 12px;
       padding: 8px 16px;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      margin: 4px 0;
     }
 
     .freq-label {
@@ -215,8 +221,8 @@
 
     /* 再生ボタン */
     .play-btn {
-      width: 52px;
-      height: 52px;
+      width: 54px;
+      height: 54px;
       border-radius: 50%;
       background: #0d1219;
       border: 2px solid #00f0ff;
@@ -241,8 +247,8 @@
     }
 
     .play-btn svg {
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       fill: currentColor;
     }
 
@@ -407,13 +413,13 @@
     <div class="freq-box-wrapper">
       <!-- 上矢印 (加算) -->
       <div class="arrows-row">
-        <button class="arrow-btn" data-step="10000" title="+10000Hz"><svg viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"/></svg></button>
-        <button class="arrow-btn" data-step="1000" title="+1000Hz"><svg viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"/></svg></button>
-        <button class="arrow-btn" data-step="100" title="+100Hz"><svg viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"/></svg></button>
-        <button class="arrow-btn" data-step="10" title="+10Hz"><svg viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"/></svg></button>
-        <button class="arrow-btn" data-step="1" title="+1Hz"><svg viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"/></svg></button>
-        <div style="width: 14px;"></div> <!-- 小数点用スペース -->
-        <button class="arrow-btn" data-step="0.1" title="+0.1Hz"><svg viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"/></svg></button>
+        <button class="arrow-btn" data-step="10000" title="+10000Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
+        <button class="arrow-btn" data-step="1000" title="+1000Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
+        <button class="arrow-btn" data-step="100" title="+100Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
+        <button class="arrow-btn" data-step="10" title="+10Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
+        <button class="arrow-btn" data-step="1" title="+1Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
+        <div style="width: 14px;"></div>
+        <button class="arrow-btn" data-step="0.1" title="+0.1Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
       </div>
 
       <!-- 周波数表示 -->
@@ -427,13 +433,13 @@
 
       <!-- 下矢印 (減算) -->
       <div class="arrows-row">
-        <button class="arrow-btn" data-step="-10000" title="-10000Hz"><svg viewBox="0 0 24 24"><path d="M12 16l6-6H6z"/></svg></button>
-        <button class="arrow-btn" data-step="-1000" title="-1000Hz"><svg viewBox="0 0 24 24"><path d="M12 16l6-6H6z"/></svg></button>
-        <button class="arrow-btn" data-step="-100" title="-100Hz"><svg viewBox="0 0 24 24"><path d="M12 16l6-6H6z"/></svg></button>
-        <button class="arrow-btn" data-step="-10" title="-10Hz"><svg viewBox="0 0 24 24"><path d="M12 16l6-6H6z"/></svg></button>
-        <button class="arrow-btn" data-step="-1" title="-1Hz"><svg viewBox="0 0 24 24"><path d="M12 16l6-6H6z"/></svg></button>
-        <div style="width: 14px;"></div> <!-- 小数点用スペース -->
-        <button class="arrow-btn" data-step="-0.1" title="-0.1Hz"><svg viewBox="0 0 24 24"><path d="M12 16l6-6H6z"/></svg></button>
+        <button class="arrow-btn" data-step="-10000" title="-10000Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
+        <button class="arrow-btn" data-step="-1000" title="-1000Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
+        <button class="arrow-btn" data-step="-100" title="-100Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
+        <button class="arrow-btn" data-step="-10" title="-10Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
+        <button class="arrow-btn" data-step="-1" title="-1Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
+        <div style="width: 14px;"></div>
+        <button class="arrow-btn" data-step="-0.1" title="-0.1Hz"><svg viewBox="0 0 24 24"><path d="M12 17l7-7H5z"/></svg></button>
       </div>
     </div>
 
@@ -717,7 +723,7 @@
       const dataArray = new Uint8Array(bufferLength);
       analyserNode.getByteTimeDomainData(dataArray);
 
-      // ゼロクロス・トリガー検知
+      // 【ゼロクロス・トリガー検知】
       let triggerOffset = 0;
       for (let i = 0; i < bufferLength / 2; i++) {
         if (dataArray[i] < 128 && dataArray[i + 1] >= 128) {
