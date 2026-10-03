@@ -307,7 +307,7 @@
       box-shadow: 0 0 10px rgba(0, 240, 255, 0.9);
     }
 
-    /* ログスケール目盛り付きラベル */
+    /* 修正3 & 4: 明るい水色に統一したログスケール目盛り */
     .log-ticks {
       position: relative;
       width: 100%;
@@ -319,7 +319,7 @@
       position: absolute;
       transform: translateX(-50%);
       font-size: 10px;
-      color: #00f0ff;
+      color: #00f0ff; /* 明るい水色に統一 */
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -328,8 +328,8 @@
     .log-tick::before {
       content: '';
       width: 1px;
-      height: 4px;
-      background: #00f0ff66;
+      height: 5px;
+      background: #00f0ff; /* ティック線も明るい水色に統一 */
       margin-bottom: 2px;
     }
 
@@ -349,14 +349,16 @@
       height: 140px;
     }
 
+    /* 修正5: f=... を前に配置し、カラーを明るい水色(#00f0ff)に変更 */
     .scope-info {
       position: absolute;
       top: 6px;
       left: 10px;
       font-size: 11px;
-      color: #ff5555;
+      color: #00f0ff;
       font-family: monospace;
       pointer-events: none;
+      text-shadow: 0 0 4px rgba(0, 240, 255, 0.4);
     }
 
     /* 時間軸設定 */
@@ -405,19 +407,18 @@
   <!-- 波形選択 & チャンネル選択 -->
   <div class="top-controls">
     <div class="waveform-selector">
-      <!-- 修正1: 正しい綺麗なサイン波 -->
+      <!-- 修正1: すべてぴったり1波長分のアイコン表示 -->
       <button class="wave-btn active" data-wave="sine" title="サイン波">
-        <svg viewBox="0 0 24 24"><path d="M 2 12 C 6 4, 6 20, 12 12 C 18 4, 18 20, 22 12"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 3 12 C 7 3, 9 3, 12 12 C 15 21, 17 21, 21 12"/></svg>
       </button>
-      <!-- 修正2: 方形波（｜￣｜＿｜） -->
       <button class="wave-btn" data-wave="square" title="矩形波">
-        <svg viewBox="0 0 24 24"><path d="M 2 17 V 7 H 10 V 17 H 18 V 7 H 22"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 3 12 V 5 H 12 V 19 H 21 V 12"/></svg>
       </button>
       <button class="wave-btn" data-wave="triangle" title="三角波">
-        <svg viewBox="0 0 24 24"><path d="M 2 17 L 7 7 L 17 17 L 22 7"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 3 12 L 7.5 5 L 16.5 19 L 21 12"/></svg>
       </button>
       <button class="wave-btn" data-wave="sawtooth" title="ノコギリ波">
-        <svg viewBox="0 0 24 24"><path d="M 2 17 L 12 7 V 17 L 22 7"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M 3 12 L 12 5 V 19 L 21 12"/></svg>
       </button>
     </div>
 
@@ -441,10 +442,11 @@
         <button class="arrow-btn" data-step="0.1" title="+0.1Hz"><svg viewBox="0 0 24 24"><path d="M12 7l-7 7h14z"/></svg></button>
       </div>
 
+      <!-- 修正2: 初期値 1000.0Hz -->
       <div class="freq-display-box">
         <span class="freq-label">周波数</span>
         <div class="freq-digits-container">
-          <input type="number" id="freqInput" class="freq-digit-input" value="10000.0" step="0.1" min="1" max="20000">
+          <input type="number" id="freqInput" class="freq-digit-input" value="1000.0" step="0.1" min="1" max="20000">
         </div>
         <span class="freq-unit">Hz</span>
       </div>
@@ -468,17 +470,17 @@
 
   <!-- スライダーエリア -->
   <div class="sliders-section">
-    <!-- 修正3: ログスケール目盛り付きスライダー -->
+    <!-- 修正3 & 4: 数値表記指定 & 水色統一のログスケール目盛り -->
     <div class="slider-group">
       <div class="slider-title">周波数設定</div>
       <div class="slider-wrapper">
-        <input type="range" id="freqSlider" min="0" max="1" step="0.0001" value="0.822">
+        <input type="range" id="freqSlider" min="0" max="1" step="0.0001" value="0.566">
         <div class="log-ticks">
           <span class="log-tick" style="left: 0%;">20Hz</span>
           <span class="log-tick" style="left: 23.3%;">100Hz</span>
-          <span class="log-tick" style="left: 56.6%;">1kHz</span>
-          <span class="log-tick" style="left: 90.0%;">10kHz</span>
-          <span class="log-tick" style="left: 100%;">20kHz</span>
+          <span class="log-tick" style="left: 56.6%;">1000Hz</span>
+          <span class="log-tick" style="left: 90.0%;">10000Hz</span>
+          <span class="log-tick" style="left: 100%;">20000Hz</span>
         </div>
       </div>
     </div>
@@ -494,7 +496,8 @@
 
   <!-- オシロスコープ Canvas -->
   <div class="scope-container">
-    <div class="scope-info" id="scopeInfo">T = 1/f = --ms, f = --Hz</div>
+    <!-- 修正5: f=... を前に配置しカラー変更 -->
+    <div class="scope-info" id="scopeInfo">f = --Hz, T = 1/f = --ms</div>
     <canvas id="scopeCanvas"></canvas>
   </div>
 
@@ -518,9 +521,9 @@
   let mergerNode = null;
   let analyserNode = null;
 
-  // App State
+  // App State (修正2: 初期値 1000Hz)
   let isPlaying = false;
-  let currentFreq = 10000;
+  let currentFreq = 1000;
   let currentWave = 'sine';
   let currentChannel = 'LR';
   let currentVolume = 0.3;
@@ -690,7 +693,7 @@
   });
 
   // -------------------------------------------------------------
-  // Canvas オシロスコープ描画 (視認性アップ目盛り付き)
+  // Canvas オシロスコープ描画
   // -------------------------------------------------------------
   function resizeCanvas() {
     scopeCanvas.width = scopeCanvas.clientWidth;
@@ -709,11 +712,10 @@
     canvasCtx.fillStyle = '#030507';
     canvasCtx.fillRect(0, 0, width, height);
 
-    // 修正4: グリッド線（目盛り）の明るさ・太さを調整し視認性を大幅向上
+    // 格子線描画
     const gridX = 10;
     const gridY = 4;
 
-    // 縦横格子線
     canvasCtx.strokeStyle = '#1e2c3d';
     canvasCtx.lineWidth = 1;
 
@@ -732,7 +734,7 @@
       canvasCtx.stroke();
     }
 
-    // センター軸線 (少し明るく強調)
+    // センター軸線
     canvasCtx.strokeStyle = '#2b3f57';
     canvasCtx.lineWidth = 1.5;
     canvasCtx.beginPath();
@@ -740,11 +742,11 @@
     canvasCtx.lineTo(width, height / 2);
     canvasCtx.stroke();
 
-    // 周期計算表示 (T = 1/f)
+    // 修正5: f=... を前に配置して更新
     const periodMs = (1 / currentFreq) * 1000;
     let pStr = periodMs < 1 ? `${(periodMs * 1000).toFixed(2)}µs` : `${periodMs.toFixed(2)}ms`;
     let fStr = currentFreq >= 1000 ? `${(currentFreq / 1000).toFixed(2)}kHz` : `${currentFreq.toFixed(1)}Hz`;
-    scopeInfo.innerText = `T = 1/f = ${pStr}, f = ${fStr}`;
+    scopeInfo.innerText = `f = ${fStr}, T = 1/f = ${pStr}`;
 
     // 波形描画
     if (analyserNode && isPlaying) {
@@ -800,8 +802,8 @@
     }
   }
 
-  // 初期値設定
-  setFrequency(10000);
+  // 初期値設定 (修正2: 1000Hz)
+  setFrequency(1000);
   drawScope();
 </script>
 </body>
