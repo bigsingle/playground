@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Physics Lab Oscilloscope</title>
+  <title>Oscilloscope</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
@@ -89,6 +89,25 @@
       cursor: pointer;
     }
 
+    .agc-btn {
+      margin-top: 4px;
+      padding: 3px 6px;
+      background-color: #222;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-family: monospace;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .agc-btn.active {
+      background-color: #00ffcc;
+      color: #000;
+    }
+
     .status-overlay {
       position: absolute;
       top: 50%;
@@ -140,7 +159,7 @@
 </head>
 <body>
 
-  <div class="app-title">高校物理 Webオシロスコープ (AGC: OFF)</div>
+  <div class="app-title">Oscilloscope</div>
 
   <div class="oscillo-container">
     <div class="screen-area" id="screenArea">
@@ -167,6 +186,7 @@
             <option value="50">50 mV/div</option>
             <option value="100">100 mV/div</option>
           </select>
+          <button class="agc-btn" id="agcBtn">AGC: OFF</button>
         </div>
       </div>
 
@@ -189,11 +209,14 @@
   const infoText = document.getElementById('infoText');
   const timeSelect = document.getElementById('timeSelect');
   const voltSelect = document.getElementById('voltSelect');
+  const agcBtn = document.getElementById('agcBtn');
 
   let audioCtx = null;
   let analyser = null;
   let dataArray = null;
   let isRunning = false;
+  let isAgcOn = false;
+  let mediaStream = null;
 
   function resizeCanvas() {
     canvas.width = canvas.clientWidth * window.devicePixelRatio;
@@ -202,32 +225,58 @@
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
 
+  async function startAudioStream() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: isAgcOn
+      }
+    });
+
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } else if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
+    const source = audioCtx.createMediaStreamSource(mediaStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.fftSize);
+  }
+
+  agcBtn.addEventListener('click', async () => {
+    isAgcOn = !isAgcOn;
+    if (isAgcOn) {
+      agcBtn.innerText = "AGC: ON";
+      agcBtn.classList.add('active');
+    } else {
+      agcBtn.innerText = "AGC: OFF";
+      agcBtn.classList.remove('active');
+    }
+
+    if (isRunning) {
+      await startAudioStream();
+      infoText.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
+    }
+  });
+
   toggleBtn.addEventListener('click', async () => {
     if (!audioCtx) {
       try {
-        // 入力電圧の大きさを正しく比較するため、各種自動処理をオフに設定
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false, // エコーキャンセル OFF
-            noiseSuppression: false, // ノイズキャンセラー OFF
-            autoGainControl: false   // 自動利得制御(AGC) OFF
-          }
-        });
-
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioCtx.createMediaStreamSource(stream);
-
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 4096; // 充分なサンプル数を確保
-
-        source.connect(analyser);
-        dataArray = new Uint8Array(analyser.fftSize);
-
+        await startAudioStream();
         isRunning = true;
         toggleBtn.innerText = "一時停止";
         toggleBtn.classList.add('active');
         statusOverlay.style.display = 'none';
-        infoText.innerText = "状態: 計測中 (AGC: OFF)";
+        infoText.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
         draw();
       } catch (err) {
         alert("マイク（音声入力）のアクセス許可が必要です: " + err);
@@ -237,8 +286,6 @@
       isRunning = false;
       toggleBtn.innerText = "測定再開";
       toggleBtn.classList.remove('active');
-      statusOverlay.style.display = 'block';
-      statusOverlay.innerText = "一時停止中";
       infoText.innerText = "状態: 一時停止中";
     } else {
       await audioCtx.resume();
@@ -246,7 +293,7 @@
       toggleBtn.innerText = "一時停止";
       toggleBtn.classList.add('active');
       statusOverlay.style.display = 'none';
-      infoText.innerText = "状態: 計測中 (AGC: OFF)";
+      infoText.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
       draw();
     }
   });
@@ -293,8 +340,7 @@
     const sampleRate = audioCtx.sampleRate;
     const samplesToDisplay = Math.floor((totalDisplayTimeMs / 1000) * sampleRate);
 
-    // 電圧スケール計算 (手動で感度を切り替え可能)
-    // 基準感度の換算係数
+    // 電圧スケール計算
     const scaleFactor = (10 / voltDivMv);
 
     ctx.lineWidth = 2 * window.devicePixelRatio;
@@ -307,13 +353,8 @@
     for (let i = 0; i < samplesToDisplay; i++) {
       if (i >= dataArray.length) break;
 
-      // 8bitデータ (0~255, 128がゼロクロス) を -1.0 ~ +1.0 に正規化
       const v = (dataArray[i] - 128) / 128.0;
-      
-      // 手動スケール調整を適用
       const scaledV = v * scaleFactor;
-      
-      // Y座標変換 (中央が0V)
       const y = (h / 2) - (scaledV * (h / 2));
 
       if (i === 0) ctx.moveTo(x, y);
