@@ -37,6 +37,7 @@
       height: 100%;
       background-color: #151611;
       overflow: hidden;
+      cursor: pointer; /* タップ操作可能であることを示す */
     }
 
     canvas {
@@ -45,18 +46,48 @@
       display: block;
     }
 
-    /* 左上・左下のOSDテキスト表示 */
-    .osd {
+    /* 左上のOSD（プルダウン式コントロール） */
+    .osd-top-left {
       position: absolute;
+      top: 10px;
+      left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 10;
+    }
+
+    .osd-select {
+      background-color: rgba(21, 22, 17, 0.85);
       color: #33ffff;
+      border: 1px solid #33ffff;
+      border-radius: 3px;
       font-family: monospace;
       font-size: 14px;
-      line-height: 1.3;
-      pointer-events: none;
+      padding: 3px 6px;
+      outline: none;
+      cursor: pointer;
     }
-    .osd-top-left { top: 12px; left: 16px; }
-    .osd-top-right { top: 12px; right: 16px; text-align: right; }
-    .osd-bottom-left { bottom: 12px; left: 16px; }
+
+    .osd-select option {
+      background-color: #151611;
+      color: #33ffff;
+    }
+
+    /* 画面中央の停止状態表示 */
+    .status-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 18px;
+      font-family: monospace;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     /* 右側操作パネル */
     .control-panel {
@@ -66,101 +97,114 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px 5px;
+      padding: 15px 8px;
       color: #ffffff;
-      font-size: 12px;
     }
 
-    .panel-title { font-weight: bold; margin-bottom: 15px; color: #ddd; }
-    .panel-btn {
-      width: 85%;
+    /* FFT / オシロ 切替ボタンエリア（並列配置） */
+    .mode-btn-group {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .panel-btn-sm {
+      flex: 1;
       padding: 8px 0;
+      background-color: #444;
+      color: #ccc;
+      border: 1px solid #666;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .panel-btn-sm.active {
+      background-color: #225588;
+      color: #fff;
+      border-color: #33ffff;
+    }
+
+    .panel-btn {
+      width: 100%;
+      padding: 10px 0;
       margin-bottom: 12px;
       background-color: #444;
       color: #fff;
       border: 1px solid #666;
       border-radius: 4px;
+      font-size: 12px;
       font-weight: bold;
       text-align: center;
       cursor: pointer;
     }
     .panel-btn:active { background-color: #666; }
-
-    .panel-group {
-      width: 100%;
-      text-align: center;
-      margin-top: auto;
-      margin-bottom: 10px;
-    }
-
-    .label-sm { font-size: 11px; color: #ccc; margin-bottom: 4px; }
-    
-    /* 周波数表示表示ボックス */
-    .freq-box {
-      background-color: #111;
-      border: 1px solid #444;
-      border-radius: 4px;
-      padding: 6px 0;
-      color: #00ff00;
-      font-family: monospace;
-      font-size: 18px;
-      font-weight: bold;
-      text-align: center;
-      margin-top: 2px;
-    }
   </style>
 </head>
 <body>
 
 <div class="oscillo-container">
-  <!-- ディスプレイ部 -->
-  <div class="screen-area">
+  <!-- ディスプレイ部（画面タップでON/OFF切り替え） -->
+  <div class="screen-area" id="screenArea">
     <canvas id="oscilloCanvas"></canvas>
     
-    <!-- OSD (On Screen Display) -->
-    <div class="osd osd-top-left">
-      <div id="timeDiv">2.0 ms/div</div>
-      <div id="voltDiv">200 mV/div</div>
+    <!-- 左上 プルダウン選択UI -->
+    <div class="osd-top-left" onclick="event.stopPropagation();">
+      <select id="timeSelect" class="osd-select">
+        <option value="0.1">0.1 ms/div</option>
+        <option value="1.0">1.0 ms/div</option>
+        <option value="10" selected>10 ms/div</option>
+        <option value="100">100 ms/div</option>
+        <option value="1000">1000 ms/div</option>
+      </select>
+      <select id="voltSelect" class="osd-select">
+        <option value="1">1 mV/div</option>
+        <option value="5">5 mV/div</option>
+        <option value="10" selected>10 mV/div</option>
+        <option value="50">50 mV/div</option>
+        <option value="100">100 mV/div</option>
+        <option value="200">200 mV/div</option>
+      </select>
     </div>
-    <div class="osd osd-top-right">
-      <div>Single</div>
-      <div style="color: #33ffff;">サイン波</div>
-    </div>
-    <div class="osd osd-bottom-left">
-      <div>0.0 ms</div>
+
+    <!-- 停止時ガイドテキスト -->
+    <div class="status-overlay" id="statusOverlay">
+      [ タップして計測開始 / 停止 ]
     </div>
   </div>
 
   <!-- 右側 コントロールパネル -->
   <div class="control-panel">
-    <div class="panel-title">FFT / オシロ</div>
-    
-    <div class="panel-btn" id="btnMode">Mode</div>
-    <div class="panel-btn" id="btnReset">Reset</div>
-    <div class="panel-btn" id="btnStart">ON / OFF</div>
-    
-    <div class="panel-group">
-      <div class="label-sm">信号種別</div>
-      <div class="label-sm" style="color: #33ffff;">周波数</div>
-      <div class="freq-box" id="freqVal">0</div>
+    <!-- FFT / オシロ 並列表示ボタン -->
+    <div class="mode-btn-group">
+      <div class="panel-btn-sm active" id="btnOscillo">オシロ</div>
+      <div class="panel-btn-sm" id="btnFFT">FFT</div>
     </div>
-
-    <div class="panel-btn" id="btnCopy" style="margin-bottom:0;">Copy</div>
+    
+    <div class="panel-btn" id="btnReset">Reset</div>
   </div>
 </div>
 
 <script>
   const canvas = document.getElementById('oscilloCanvas');
   const ctx = canvas.getContext('2d');
-  const freqValEl = document.getElementById('freqVal');
-  const btnStart = document.getElementById('btnStart');
+  const screenArea = document.getElementById('screenArea');
+  const statusOverlay = document.getElementById('statusOverlay');
+  const timeSelect = document.getElementById('timeSelect');
+  const voltSelect = document.getElementById('voltSelect');
+  const btnOscillo = document.getElementById('btnOscillo');
+  const btnFFT = document.getElementById('btnFFT');
+  const btnReset = document.getElementById('btnReset');
 
   let audioCtx = null;
   let analyser = null;
   let dataArray = null;
   let isRunning = false;
+  let currentMode = 'oscillo'; // 'oscillo' または 'fft'
 
-  // キャンバス解像度の調整
   function resizeCanvas() {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
@@ -168,11 +212,34 @@
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
 
-  // マイク入力の開始・停止
-  btnStart.addEventListener('click', async () => {
+  // モード切り替え（オシロ / FFT）
+  btnOscillo.addEventListener('click', () => {
+    currentMode = 'oscillo';
+    btnOscillo.classList.add('active');
+    btnFFT.classList.remove('active');
+  });
+
+  btnFFT.addEventListener('click', () => {
+    currentMode = 'fft';
+    btnFFT.classList.add('active');
+    btnOscillo.classList.remove('active');
+  });
+
+  // リセットボタン
+  btnReset.addEventListener('click', () => {
+    timeSelect.value = "10";
+    voltSelect.value = "10";
+    currentMode = 'oscillo';
+    btnOscillo.classList.add('active');
+    btnFFT.classList.remove('active');
+  });
+
+  // 画面タップでON/OFF切替
+  screenArea.addEventListener('click', async () => {
     if (isRunning) {
       isRunning = false;
       if (audioCtx) audioCtx.suspend();
+      statusOverlay.style.display = 'flex';
       return;
     }
 
@@ -193,6 +260,7 @@
 
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         isRunning = true;
+        statusOverlay.style.display = 'none';
         draw();
       } catch (err) {
         alert("マイクアクセスの許可が必要です: " + err);
@@ -200,29 +268,15 @@
     } else {
       audioCtx.resume();
       isRunning = true;
+      statusOverlay.style.display = 'none';
       draw();
     }
   });
 
-  // 簡易周波数推定（自己相関/ゼロクロス方式）
-  function estimateFrequency(buffer, sampleRate) {
-    let zeroCrossings = 0;
-    for (let i = 0; i < buffer.length - 1; i++) {
-      if ((buffer[i] < 128 && buffer[i+1] >= 128) || (buffer[i] >= 128 && buffer[i+1] < 128)) {
-        zeroCrossings++;
-      }
-    }
-    const numCycles = zeroCrossings / 2;
-    const duration = buffer.length / sampleRate;
-    return Math.round(numCycles / duration);
-  }
-
-  // 描画ループ
+  // 描画メインルーチン
   function draw() {
     if (!isRunning) return;
     requestAnimationFrame(draw);
-
-    analyser.getByteTimeDomainData(dataArray);
 
     const w = canvas.width;
     const h = canvas.height;
@@ -231,61 +285,76 @@
     ctx.fillStyle = '#151611';
     ctx.fillRect(0, 0, w, h);
 
-    // グリッド線の描画 (8行 x 10列)
+    // グリッド線描画 (10列 x 8行)
     ctx.strokeStyle = '#2d3326';
     ctx.lineWidth = 1;
-
     const cols = 10;
     const rows = 8;
     for (let i = 1; i < cols; i++) {
       const x = (w / cols) * i;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
     }
     for (let j = 1; j < rows; j++) {
       const y = (h / rows) * j;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(w, y);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
 
-    // センター十字目盛り（細かな目盛り線）
+    // センター目盛り線
     ctx.strokeStyle = '#3d4734';
-    const centerX = w / 2;
-    const centerY = h / 2;
-    
-    // センター縦線
-    ctx.beginPath(); ctx.moveTo(centerX, 0); ctx.lineTo(centerX, h); ctx.stroke();
-    // センター横線
-    ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(w, centerY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
 
-    // 波形描画 (黄色/黄緑色のレトロスタイル波形)
-    ctx.lineWidth = 1.8;
-    ctx.strokeStyle = '#d4df38';
-    ctx.beginPath();
+    if (currentMode === 'oscillo') {
+      // --- オシロスコープ（時間領域）表示 ---
+      analyser.getByteTimeDomainData(dataArray);
 
-    const sliceWidth = w * 1.0 / dataArray.length;
-    let x = 0;
+      const timeDivMs = parseFloat(timeSelect.value); // ms/div
+      const voltDivMv = parseFloat(voltSelect.value); // mV/div
 
-    for (let i = 0; i < dataArray.length; i++) {
-      const v = dataArray[i] / 128.0; // 0.0 - 2.0 (1.0中心)
-      const y = (v * h) / 2;
+      // ゲイン（感度）計算 (10mV/divを標準スケールとして調整)
+      const scaleGain = 10 / voltDivMv;
 
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      // 時間軸ズーム用のステップ間隔計算
+      const sampleRate = audioCtx.sampleRate; // Hz
+      const totalDisplayTimeMs = timeDivMs * 10; // 全画面表示時間
+      const targetSamples = (totalDisplayTimeMs / 1000) * sampleRate;
+      const step = Math.max(1, targetSamples / dataArray.length);
 
-      x += sliceWidth;
-    }
-    ctx.stroke();
+      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = '#d4df38';
+      ctx.beginPath();
 
-    // 簡易周波数更新
-    if (audioCtx) {
-      const freq = estimateFrequency(dataArray, audioCtx.sampleRate);
-      if (freq > 30 && freq < 5000) {
-        freqValEl.textContent = freq;
+      const sliceWidth = w / (dataArray.length / step);
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i += step) {
+        const idx = Math.floor(i);
+        if (idx >= dataArray.length) break;
+
+        const rawV = (dataArray[idx] - 128) / 128.0; // -1.0 〜 +1.0
+        const scaledV = rawV * scaleGain;
+        const y = (h / 2) - (scaledV * (h / 2));
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+
+        x += sliceWidth;
+      }
+      ctx.stroke();
+
+    } else {
+      // --- FFT（周波数領域）表示 ---
+      analyser.getByteFrequencyData(dataArray);
+
+      const barWidth = (w / dataArray.length) * 2.5;
+      let x = 0;
+
+      ctx.fillStyle = '#33ffff';
+      for (let i = 0; i < dataArray.length; i++) {
+        const barHeight = (dataArray[i] / 255) * h;
+        ctx.fillRect(x, h - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+        if (x > w) break;
       }
     }
   }
