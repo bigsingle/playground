@@ -1,161 +1,70 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LED光起電力測定ツール (BYOD対応)</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; background: #f0f4f8; padding: 20px; color: #333; }
-    .card { background: white; max-width: 500px; margin: 0 auto; padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    select, button { font-size: 1rem; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
-    .btn-group { display: flex; gap: 10px; }
-    #startBtn { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
-    #startBtn:disabled { background: #94c2f5; }
-    #stopBtn { background: #dc3545; color: white; border: none; font-weight: bold; cursor: pointer; }
-    #stopBtn:disabled { background: #f1aeb5; }
-    #meter { font-size: 3rem; font-weight: bold; margin: 15px 0; font-family: monospace; color: #1e293b; }
-    canvas { width: 100%; height: 160px; background: #0f172a; border-radius: 8px; }
-    .status { font-size: 0.85rem; color: #64748b; margin-top: 8px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイク入力認識テスト</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #fff; padding: 20px; text-align: center; }
+        .box { background: #333; padding: 15px; margin: 10px auto; max-width: 500px; border-radius: 8px; }
+        .status { font-weight: bold; font-size: 1.2em; color: #00ffcc; }
+        meter { width: 80%; height: 25px; }
+        button { font-size: 16px; padding: 10px 20px; background: #0288d1; color: white; border: none; border-radius: 4px; }
+    </style>
 </head>
 <body>
-  <div class="card">
-    <h2>LED光起電力 測定ツール</h2>
-    <p style="font-size: 0.9rem; color: #475569;">LEDに光を明滅（チョッピング）させて測定します</p>
 
-    <label for="micSelect" style="font-size: 0.85rem; font-weight: bold; display: block; text-align: left;">入力マイクの選択:</label>
-    <select id="micSelect"><option value="">マイクを検索中...</option></select>
-
-    <div class="btn-group">
-      <button id="startBtn">測定開始</button>
-      <button id="stopBtn" disabled>測定中止</button>
+    <h2>iPad 外部マイク認識チェッカー</h2>
+    
+    <div class="box">
+        <button id="startBtn">マイク入力を確認</button>
+        <p>使用中のデバイス: <br><span id="devName" class="status">未取得</span></p>
+        <p>入力レベル:</p>
+        <meter id="levelMeter" min="0" max="100" value="0"></meter>
     </div>
 
-    <div id="meter">0.0 mV</div>
-    <canvas id="waveform"></canvas>
-    <div class="status" id="statusText">停止中</div>
-  </div>
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const devName = document.getElementById('devName');
+        const levelMeter = document.getElementById('levelMeter');
 
-  <script>
-    let audioCtx = null;
-    let analyser = null;
-    let mediaStream = null;
-    let animationId = null;
+        startBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
 
-    const micSelect = document.getElementById('micSelect');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const meter = document.getElementById('meter');
-    const statusText = document.getElementById('statusText');
-    const canvas = document.getElementById('waveform');
-    const canvasCtx = canvas.getContext('2d');
+                // 使用中のマイクデバイス名を取得
+                const track = stream.getAudioTracks()[0];
+                const settings = track.getSettings();
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const currentDev = devices.find(d => d.deviceId === settings.deviceId);
 
-    // 接続されているマイクデバイス一覧を取得
-    async function getMicDevices() {
-      try {
-        const tmpStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        tmpStream.getTracks().forEach(t => t.stop());
+                devName.textContent = currentDev ? currentDev.label : "マイク取得完了 (名前不明)";
 
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                // 簡易レベルメーター表示
+                const audioCtx = new AudioContext();
+                const source = audioCtx.createMediaStreamSource(stream);
+                const analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
 
-        micSelect.innerHTML = '';
-        audioInputs.forEach((device, index) => {
-          const option = document.createElement('option');
-          option.value = device.deviceId;
-          const label = device.label || `マイク ${index + 1}`;
-          option.text = label;
-          if (label.toLowerCase().includes('headset') || label.toLowerCase().includes('external') || label.toLowerCase().includes('マイク')) {
-            option.selected = true;
-          }
-          micSelect.appendChild(option);
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                function update() {
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for(let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                    let avg = sum / dataArray.length;
+                    levelMeter.value = (avg / 255) * 100;
+                    requestAnimationFrame(update);
+                }
+                update();
+
+            } catch (err) {
+                alert("マイクエラー: " + err.message);
+            }
         });
-      } catch (err) {
-        micSelect.innerHTML = '<option value="">マイク一覧を取得できません</option>';
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', getMicDevices);
-
-    // 測定開始
-    startBtn.addEventListener('click', async () => {
-      const selectedDeviceId = micSelect.value;
-      const constraints = {
-        audio: {
-          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        }
-      };
-
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioCtx.createMediaStreamSource(mediaStream);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048;
-        source.connect(analyser);
-
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        statusText.innerText = "計測中（光を当てて遮光を繰り返してください）";
-        statusText.style.color = "#16a34a";
-        draw();
-      } catch (err) {
-        alert("マイク開始エラー: " + err.message);
-      }
-    });
-
-    // 測定中止
-    stopBtn.addEventListener('click', () => {
-      if (animationId) cancelAnimationFrame(animationId);
-      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-      if (audioCtx) audioCtx.close();
-
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-      meter.innerText = "0.0 mV";
-      statusText.innerText = "停止中";
-      statusText.style.color = "#64748b";
-
-      canvasCtx.fillStyle = '#0f172a';
-      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-    });
-
-    // 描画と電圧換算ループ
-    function draw() {
-      animationId = requestAnimationFrame(draw);
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteTimeDomainData(dataArray);
-
-      let maxVal = 0, minVal = 255;
-      for (let i = 0; i < dataArray.length; i++) {
-        if (dataArray[i] > maxVal) maxVal = dataArray[i];
-        if (dataArray[i] < minVal) minVal = dataArray[i];
-      }
-
-      // Peak-to-Peak 振幅から相対起電力（mV）を算出
-      const amplitude = (maxVal - minVal) / 255.0;
-      meter.innerText = `${(amplitude * 1200).toFixed(1)} mV`;
-
-      // 波形描画
-      canvasCtx.fillStyle = '#0f172a';
-      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-      canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = '#38bdf8';
-      canvasCtx.beginPath();
-      const sliceWidth = canvas.width / dataArray.length;
-      let x = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = v * canvas.height / 2;
-        if (i === 0) canvasCtx.moveTo(x, y);
-        else canvasCtx.lineTo(x, y);
-        x += sliceWidth;
-      }
-      canvasCtx.stroke();
-    }
-  </script>
+    </script>
 </body>
 </html>
