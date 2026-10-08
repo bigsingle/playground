@@ -3,68 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マイク入力認識テスト</title>
+    <title>LC電気振動オシロスコープ</title>
     <style>
-        body { font-family: sans-serif; background: #222; color: #fff; padding: 20px; text-align: center; }
-        .box { background: #333; padding: 15px; margin: 10px auto; max-width: 500px; border-radius: 8px; }
-        .status { font-weight: bold; font-size: 1.2em; color: #00ffcc; }
-        meter { width: 80%; height: 25px; }
-        button { font-size: 16px; padding: 10px 20px; background: #0288d1; color: white; border: none; border-radius: 4px; }
+        body { font-family: sans-serif; text-align: center; background: #121212; color: #fff; margin: 0; padding: 10px; }
+        canvas { background: #000; border: 2px solid #333; border-radius: 8px; width: 100%; max-width: 800px; height: 350px; }
+        .controls { margin: 15px 0; }
+        button { font-size: 16px; padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:disabled { background: #555; }
+        .info { font-size: 14px; color: #aaa; }
     </style>
 </head>
 <body>
 
-    <h2>iPad 外部マイク認識チェッカー</h2>
+    <h2>LC電気振動 簡易オシロスコープ</h2>
+    <canvas id="oscilloscope"></canvas>
     
-    <div class="box">
-        <button id="startBtn">マイク入力を確認</button>
-        <p>使用中のデバイス: <br><span id="devName" class="status">未取得</span></p>
-        <p>入力レベル:</p>
-        <meter id="levelMeter" min="0" max="100" value="0"></meter>
+    <div class="controls">
+        <button id="startBtn">計測開始 / リセット</button>
+        <button id="freezeBtn" disabled>画面固定 (Hold)</button>
     </div>
+    <div class="info">※ スイッチ操作時の過渡応答波形をトリガーキャプチャします</div>
 
-    <script>
-        const startBtn = document.getElementById('startBtn');
-        const devName = document.getElementById('devName');
-        const levelMeter = document.getElementById('levelMeter');
+<script>
+let audioCtx, analyser, dataArray;
+let isFrozen = false;
+const canvas = document.getElementById('oscilloscope');
+const canvasCtx = canvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
+const freezeBtn = document.getElementById('freezeBtn');
 
-        startBtn.addEventListener('click', async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                });
+startBtn.addEventListener('click', async () => {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        dataArray = new Float32Array(analyser.fftSize);
+        freezeBtn.disabled = false;
+        draw();
+    } else if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+    }
+    isFrozen = false;
+});
 
-                // 使用中のマイクデバイス名を取得
-                const track = stream.getAudioTracks()[0];
-                const settings = track.getSettings();
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const currentDev = devices.find(d => d.deviceId === settings.deviceId);
+freezeBtn.addEventListener('click', () => {
+    isFrozen = !isFrozen;
+    freezeBtn.innerText = isFrozen ? "解除 (Run)" : "画面固定 (Hold)";
+});
 
-                devName.textContent = currentDev ? currentDev.label : "マイク取得完了 (名前不明)";
+function draw() {
+    requestAnimationFrame(draw);
+    if (isFrozen || !analyser) return;
 
-                // 簡易レベルメーター表示
-                const audioCtx = new AudioContext();
-                const source = audioCtx.createMediaStreamSource(stream);
-                const analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256;
-                source.connect(analyser);
+    analyser.getFloatTimeDomainData(dataArray);
 
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                
-                function update() {
-                    analyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
-                    for(let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                    let avg = sum / dataArray.length;
-                    levelMeter.value = (avg / 255) * 100;
-                    requestAnimationFrame(update);
-                }
-                update();
+    canvasCtx.fillStyle = '#000';
+    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-            } catch (err) {
-                alert("マイクエラー: " + err.message);
-            }
-        });
-    </script>
+    // グリッド線の描画
+    canvasCtx.strokeStyle = '#222';
+    canvasCtx.lineWidth = 1;
+    for(let x = 0; x < canvas.width; x += 50) { canvasCtx.beginPath(); canvasCtx.moveTo(x, 0); canvasCtx.lineTo(x, canvas.height); canvasCtx.stroke(); }
+    for(let y = 0; y < canvas.height; y += 50) { canvasCtx.beginPath(); canvasCtx.moveTo(0, y); canvasCtx.lineTo(canvas.width, y); canvasCtx.stroke(); }
+
+    // 簡易トリガー検出（ゼロクロス）
+    let triggerIndex = 0;
+    for (let i = 0; i < dataArray.length - 1; i++) {
+        if (dataArray[i] < 0 && dataArray[i+1] >= 0) {
+            triggerIndex = i;
+            break;
+        }
+    }
+
+    // 波形描画
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = '#00ffcc';
+    canvasCtx.beginPath();
+
+    const sliceWidth = canvas.width * 1.0 / (dataArray.length - triggerIndex);
+    let x = 0;
+
+    for (let i = triggerIndex; i < dataArray.length; i++) {
+        const v = dataArray[i];
+        const y = (1 - v) * canvas.height / 2; // スケーリング
+
+        if (i === triggerIndex) {
+            canvasCtx.moveTo(x, y);
+        } else {
+            canvasCtx.lineTo(x, y);
+        }
+        x += sliceWidth;
+    }
+
+    canvasCtx.stroke();
+}
+</script>
 </body>
 </html>
