@@ -3,102 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LC電気振動オシロスコープ</title>
+    <title>LC電気振動 キャプチャ・オシロスコープ</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #121212; color: #fff; margin: 0; padding: 10px; }
-        canvas { background: #000; border: 2px solid #333; border-radius: 8px; width: 100%; max-width: 800px; height: 350px; }
-        .controls { margin: 15px 0; }
-        button { font-size: 16px; padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; }
-        button:disabled { background: #555; }
-        .info { font-size: 14px; color: #aaa; }
+        body { font-family: Arial, sans-serif; text-align: center; background: #181818; color: #fff; margin: 0; padding: 10px; }
+        canvas { background: #000; border: 2px solid #444; border-radius: 8px; width: 100%; max-width: 800px; height: 380px; }
+        .controls { margin: 15px 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        button { font-size: 15px; font-weight: bold; padding: 10px 18px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:disabled { background: #444; color: #888; }
+        .status { font-size: 14px; color: #00ffcc; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-    <h2>LC電気振動 簡易オシロスコープ</h2>
+    <h2>LC減衰振動キャプチャ (f0 ≒ 1kHz対応)</h2>
     <canvas id="oscilloscope"></canvas>
     
     <div class="controls">
-        <button id="startBtn">計測開始 / リセット</button>
-        <button id="freezeBtn" disabled>画面固定 (Hold)</button>
+        <button id="startBtn">計測開始</button>
+        <button id="armBtn" disabled>トリガー待機 (Single)</button>
+        <button id="runBtn" disabled>連続描画 (Free Run)</button>
     </div>
-    <div class="info">※ スイッチ操作時の過渡応答波形をトリガーキャプチャします</div>
+    <div class="status" id="statusText">「計測開始」を押してください</div>
 
 <script>
 let audioCtx, analyser, dataArray;
-let isFrozen = false;
+let mode = 'STOP'; // STOP, ARMED, CAPTURED, FREERUN
 const canvas = document.getElementById('oscilloscope');
 const canvasCtx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
-const freezeBtn = document.getElementById('freezeBtn');
+const armBtn = document.getElementById('armBtn');
+const runBtn = document.getElementById('runBtn');
+const statusText = document.getElementById('statusText');
+
+const TRIGGER_THRESHOLD = 0.05; // トリガー閾値 (振幅)
 
 startBtn.addEventListener('click', async () => {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        });
         const source = audioCtx.createMediaStreamSource(stream);
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048;
+        analyser.fftSize = 2048; // 高解像度化
         source.connect(analyser);
         dataArray = new Float32Array(analyser.fftSize);
-        freezeBtn.disabled = false;
+        
+        armBtn.disabled = false;
+        runBtn.disabled = false;
+        setMode('ARMED');
         draw();
-    } else if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
     }
-    isFrozen = false;
 });
 
-freezeBtn.addEventListener('click', () => {
-    isFrozen = !isFrozen;
-    freezeBtn.innerText = isFrozen ? "解除 (Run)" : "画面固定 (Hold)";
-});
+armBtn.addEventListener('click', () => setMode('ARMED'));
+runBtn.addEventListener('click', () => setMode('FREERUN'));
+
+function setMode(newMode) {
+    mode = newMode;
+    if (mode === 'ARMED') statusText.innerText = "【トリガー待機中】スイッチを切り替えてください...";
+    if (mode === 'FREERUN') statusText.innerText = "【連続描画中】";
+    if (mode === 'CAPTURED') statusText.innerText = "【波形キャプチャ完了】";
+}
 
 function draw() {
     requestAnimationFrame(draw);
-    if (isFrozen || !analyser) return;
+    if (!analyser || mode === 'CAPTURED' || mode === 'STOP') return;
 
     analyser.getFloatTimeDomainData(dataArray);
 
-    canvasCtx.fillStyle = '#000';
+    // ARMEDモード時：トリガー判定
+    let triggerIdx = -1;
+    if (mode === 'ARMED') {
+        for (let i = 0; i < dataArray.length - 1; i++) {
+            if (Math.abs(dataArray[i]) < TRIGGER_THRESHOLD && dataArray[i+1] >= TRIGGER_THRESHOLD) {
+                triggerIdx = i;
+                break;
+            }
+        }
+        if (triggerIdx === -1) return; // 閾値を超えていなければ再描画しない（前画面維持）
+    } else {
+        triggerIdx = 0;
+    }
+
+    // 背景描画
+    canvasCtx.fillStyle = '#050505';
     canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // グリッド線の描画
+    // グリッド描画
     canvasCtx.strokeStyle = '#222';
     canvasCtx.lineWidth = 1;
     for(let x = 0; x < canvas.width; x += 50) { canvasCtx.beginPath(); canvasCtx.moveTo(x, 0); canvasCtx.lineTo(x, canvas.height); canvasCtx.stroke(); }
     for(let y = 0; y < canvas.height; y += 50) { canvasCtx.beginPath(); canvasCtx.moveTo(0, y); canvasCtx.lineTo(canvas.width, y); canvasCtx.stroke(); }
 
-    // 簡易トリガー検出（ゼロクロス）
-    let triggerIndex = 0;
-    for (let i = 0; i < dataArray.length - 1; i++) {
-        if (dataArray[i] < 0 && dataArray[i+1] >= 0) {
-            triggerIndex = i;
-            break;
-        }
-    }
+    // ゼロクロス基準線
+    canvasCtx.strokeStyle = '#444';
+    canvasCtx.beginPath(); canvasCtx.moveTo(0, canvas.height/2); canvasCtx.lineTo(canvas.width, canvas.height/2); canvasCtx.stroke();
 
     // 波形描画
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeStyle = '#00ffcc';
     canvasCtx.beginPath();
 
-    const sliceWidth = canvas.width * 1.0 / (dataArray.length - triggerIndex);
     let x = 0;
+    const drawLength = Math.min(dataArray.length - triggerIdx, 1000);
+    const sliceWidth = canvas.width / drawLength;
 
-    for (let i = triggerIndex; i < dataArray.length; i++) {
-        const v = dataArray[i];
-        const y = (1 - v) * canvas.height / 2; // スケーリング
+    for (let i = 0; i < drawLength; i++) {
+        const v = dataArray[triggerIdx + i];
+        const y = (1 - v * 3) * canvas.height / 2; // 表示感度を3倍に補正
 
-        if (i === triggerIndex) {
-            canvasCtx.moveTo(x, y);
-        } else {
-            canvasCtx.lineTo(x, y);
-        }
+        if (i === 0) canvasCtx.moveTo(x, y);
+        else canvasCtx.lineTo(x, y);
         x += sliceWidth;
     }
-
     canvasCtx.stroke();
+
+    if (mode === 'ARMED') {
+        setMode('CAPTURED'); // トリガーがかかったらホールド
+    }
 }
 </script>
 </body>
