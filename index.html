@@ -1,128 +1,401 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LC電気振動 キャプチャ・オシロスコープ</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #181818; color: #fff; margin: 0; padding: 10px; }
-        canvas { background: #000; border: 2px solid #444; border-radius: 8px; width: 100%; max-width: 800px; height: 380px; }
-        .controls { margin: 15px 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        button { font-size: 15px; font-weight: bold; padding: 10px 18px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        button:disabled { background: #444; color: #888; }
-        .status { font-size: 14px; color: #00ffcc; margin-top: 5px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Oscilloscope</title>
+  <style>
+    /* 共通スタイル (CommonStyle_CSS 準拠の洗練された教育用テーマ) */
+    :root {
+      --bg-color: #121212;
+      --panel-bg: #1e1e1e;
+      --card-bg: #252525;
+      --text-main: #e0e0e0;
+      --text-muted: #9e9e9e;
+      --accent-color: #00ffcc;
+      --accent-hover: #00b38f;
+      --danger-color: #ff5252;
+      --border-color: #333333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 10px;
+    }
+
+    .app-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--accent-color);
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    .oscillo-container {
+      position: relative;
+      width: 95vw;
+      max-width: 850px;
+      height: 72vh;
+      max-height: 500px;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+
+    .screen-area {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      background-color: #080c08;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .overlay-controls {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      background: rgba(30, 30, 30, 0.85);
+      backdrop-filter: blur(4px);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .control-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    select {
+      background: #111;
+      color: var(--accent-color);
+      border: 1px solid var(--accent-color);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      padding: 4px 6px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .agc-btn {
+      margin-top: 6px;
+      padding: 4px 8px;
+      background-color: #2a2a2a;
+      color: var(--accent-color);
+      border: 1px solid var(--accent-color);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .agc-btn.active {
+      background-color: var(--accent-color);
+      color: #000;
+    }
+
+    .status-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--text-main);
+      font-size: 1rem;
+      font-family: monospace;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.75);
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .bottom-bar {
+      height: 56px;
+      background-color: var(--card-bg);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .btn {
+      padding: 8px 20px;
+      background-color: var(--accent-color);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn.active {
+      background-color: var(--danger-color);
+      color: #fff;
+    }
+
+    .info-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+  </style>
 </head>
 <body>
 
-    <h2>LC減衰振動キャプチャ (f0 ≒ 1kHz対応)</h2>
-    <canvas id="oscilloscope"></canvas>
-    
-    <div class="controls">
-        <button id="startBtn">計測開始</button>
-        <button id="armBtn" disabled>トリガー待機 (Single)</button>
-        <button id="runBtn" disabled>連続描画 (Free Run)</button>
+  <div class="app-title">Oscilloscope</div>
+
+  <div class="oscillo-container">
+    <div class="screen-area" id="screenArea">
+      <canvas id="oscilloCanvas"></canvas>
+      
+      <div class="overlay-controls">
+        <div class="control-group">
+          <span class="control-label">時間軸 (Time/DIV)</span>
+          <select id="timeSelect">
+            <option value="1">1 ms/div</option>
+            <option value="2">2 ms/div</option>
+            <option value="5" selected>5 ms/div</option>
+            <option value="10">10 ms/div</option>
+            <option value="20">20 ms/div</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">電圧軸 (Volt/DIV)</span>
+          <select id="voltSelect">
+            <option value="5">5 mV/div</option>
+            <option value="10" selected>10 mV/div</option>
+            <option value="20">20 mV/div</option>
+            <option value="50">50 mV/div</option>
+            <option value="100">100 mV/div</option>
+          </select>
+          <button class="agc-btn" id="agcBtn">AGC: OFF</button>
+        </div>
+      </div>
+
+      <div class="status-overlay" id="statusOverlay">
+        画面下部の「測定開始」ボタンを押してください
+      </div>
     </div>
-    <div class="status" id="statusText">「計測開始」を押してください</div>
+
+    <div class="bottom-bar">
+      <button class="btn" id="toggleBtn">測定開始</button>
+      <div class="info-text" id="infoText">状態: 停止中</div>
+    </div>
+  </div>
 
 <script>
-let audioCtx, analyser, dataArray;
-let mode = 'STOP'; // STOP, ARMED, CAPTURED, FREERUN
-const canvas = document.getElementById('oscilloscope');
-const canvasCtx = canvas.getContext('2d');
-const startBtn = document.getElementById('startBtn');
-const armBtn = document.getElementById('armBtn');
-const runBtn = document.getElementById('runBtn');
-const statusText = document.getElementById('statusText');
+  const canvas = document.getElementById('oscilloCanvas');
+  const ctx = canvas.getContext('2d');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const statusOverlay = document.getElementById('statusOverlay');
+  const infoText = document.getElementById('infoText');
+  const timeSelect = document.getElementById('timeSelect');
+  const voltSelect = document.getElementById('voltSelect');
+  const agcBtn = document.getElementById('agcBtn');
 
-const TRIGGER_THRESHOLD = 0.05; // トリガー閾値 (振幅)
+  let audioCtx = null;
+  let analyser = null;
+  let dataArray = null;
+  let isRunning = false;
+  let isAgcOn = false;
+  let mediaStream = null;
 
-startBtn.addEventListener('click', async () => {
+  function resizeCanvas() {
+    canvas.width = canvas.clientWidth * window.devicePixelRatio;
+    canvas.height = canvas.clientHeight * window.devicePixelRatio;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  async function startAudioStream() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: isAgcOn
+      }
+    });
+
     if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        });
-        const source = audioCtx.createMediaStreamSource(stream);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048; // 高解像度化
-        source.connect(analyser);
-        dataArray = new Float32Array(analyser.fftSize);
-        
-        armBtn.disabled = false;
-        runBtn.disabled = false;
-        setMode('ARMED');
-        draw();
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } else if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
     }
-});
 
-armBtn.addEventListener('click', () => setMode('ARMED'));
-runBtn.addEventListener('click', () => setMode('FREERUN'));
+    const source = audioCtx.createMediaStreamSource(mediaStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
 
-function setMode(newMode) {
-    mode = newMode;
-    if (mode === 'ARMED') statusText.innerText = "【トリガー待機中】スイッチを切り替えてください...";
-    if (mode === 'FREERUN') statusText.innerText = "【連続描画中】";
-    if (mode === 'CAPTURED') statusText.innerText = "【波形キャプチャ完了】";
-}
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.fftSize);
+  }
 
-function draw() {
-    requestAnimationFrame(draw);
-    if (!analyser || mode === 'CAPTURED' || mode === 'STOP') return;
-
-    analyser.getFloatTimeDomainData(dataArray);
-
-    // ARMEDモード時：トリガー判定
-    let triggerIdx = -1;
-    if (mode === 'ARMED') {
-        for (let i = 0; i < dataArray.length - 1; i++) {
-            if (Math.abs(dataArray[i]) < TRIGGER_THRESHOLD && dataArray[i+1] >= TRIGGER_THRESHOLD) {
-                triggerIdx = i;
-                break;
-            }
-        }
-        if (triggerIdx === -1) return; // 閾値を超えていなければ再描画しない（前画面維持）
+  agcBtn.addEventListener('click', async () => {
+    isAgcOn = !isAgcOn;
+    if (isAgcOn) {
+      agcBtn.innerText = "AGC: ON";
+      agcBtn.classList.add('active');
     } else {
-        triggerIdx = 0;
+      agcBtn.innerText = "AGC: OFF";
+      agcBtn.classList.remove('active');
     }
 
-    // 背景描画
-    canvasCtx.fillStyle = '#050505';
-    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+    if (isRunning) {
+      await startAudioStream();
+      infoText.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
+    }
+  });
 
-    // グリッド描画
-    canvasCtx.strokeStyle = '#222';
-    canvasCtx.lineWidth = 1;
-    for(let x = 0; x < canvas.width; x += 50) { canvasCtx.beginPath(); canvasCtx.moveTo(x, 0); canvasCtx.lineTo(x, canvas.height); canvasCtx.stroke(); }
-    for(let y = 0; y < canvas.height; y += 50) { canvasCtx.beginPath(); canvasCtx.moveTo(0, y); canvasCtx.lineTo(canvas.width, y); canvasCtx.stroke(); }
+  toggleBtn.addEventListener('click', async () => {
+    if (!audioCtx) {
+      try {
+        await startAudioStream();
+        isRunning = true;
+        toggleBtn.innerText = "一時停止";
+        toggleBtn.classList.add('active');
+        statusOverlay.style.display = 'none';
+        infoText.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
+        draw();
+      } catch (err) {
+        alert("マイク（音声入力）のアクセス許可が必要です: " + err);
+      }
+    } else if (audioCtx.state === 'running') {
+      await audioCtx.suspend();
+      isRunning = false;
+      toggleBtn.innerText = "測定再開";
+      toggleBtn.classList.remove('active');
+      infoText.innerText = "状態: 一時停止中";
+    } else {
+      await audioCtx.resume();
+      isRunning = true;
+      toggleBtn.innerText = "一時停止";
+      toggleBtn.classList.add('active');
+      statusOverlay.style.display = 'none';
+      infoText.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
+      draw();
+    }
+  });
 
-    // ゼロクロス基準線
-    canvasCtx.strokeStyle = '#444';
-    canvasCtx.beginPath(); canvasCtx.moveTo(0, canvas.height/2); canvasCtx.lineTo(canvas.width, canvas.height/2); canvasCtx.stroke();
+  function draw() {
+    if (!isRunning) return;
+    requestAnimationFrame(draw);
 
-    // 波形描画
-    canvasCtx.lineWidth = 2;
-    canvasCtx.strokeStyle = '#00ffcc';
-    canvasCtx.beginPath();
+    const w = canvas.width;
+    const h = canvas.height;
 
+    // 背景クリア
+    ctx.fillStyle = '#080c08';
+    ctx.fillRect(0, 0, w, h);
+
+    // グリッド描画 (10 DIV x 8 DIV)
+    ctx.strokeStyle = '#152615';
+    ctx.lineWidth = 1 * window.devicePixelRatio;
+    const cols = 10;
+    const rows = 8;
+
+    for (let i = 1; i < cols; i++) {
+      const x = (w / cols) * i;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let j = 1; j < rows; j++) {
+      const y = (h / rows) * j;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // センター軸
+    ctx.strokeStyle = '#224422';
+    ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+
+    // 波形データ取得 (Time Domain)
+    analyser.getByteTimeDomainData(dataArray);
+
+    const timeDivMs = parseFloat(timeSelect.value);
+    const voltDivMv = parseFloat(voltSelect.value);
+
+    // 時間軸スパン計算
+    const totalDisplayTimeMs = timeDivMs * cols;
+    const sampleRate = audioCtx.sampleRate;
+    const samplesToDisplay = Math.floor((totalDisplayTimeMs / 1000) * sampleRate);
+
+    // 電圧スケール計算
+    const scaleFactor = (10 / voltDivMv);
+
+    ctx.lineWidth = 2 * window.devicePixelRatio;
+    ctx.strokeStyle = '#00ffcc';
+    ctx.beginPath();
+
+    const sliceWidth = w / samplesToDisplay;
     let x = 0;
-    const drawLength = Math.min(dataArray.length - triggerIdx, 1000);
-    const sliceWidth = canvas.width / drawLength;
 
-    for (let i = 0; i < drawLength; i++) {
-        const v = dataArray[triggerIdx + i];
-        const y = (1 - v * 3) * canvas.height / 2; // 表示感度を3倍に補正
+    for (let i = 0; i < samplesToDisplay; i++) {
+      if (i >= dataArray.length) break;
 
-        if (i === 0) canvasCtx.moveTo(x, y);
-        else canvasCtx.lineTo(x, y);
-        x += sliceWidth;
+      const v = (dataArray[i] - 128) / 128.0;
+      const scaledV = v * scaleFactor;
+      const y = (h / 2) - (scaledV * (h / 2));
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+
+      x += sliceWidth;
     }
-    canvasCtx.stroke();
-
-    if (mode === 'ARMED') {
-        setMode('CAPTURED'); // トリガーがかかったらホールド
-    }
-}
+    ctx.stroke();
+  }
 </script>
 </body>
 </html>
