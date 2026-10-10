@@ -1,294 +1,259 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Oscilloscope</title>
-  <!-- 共通デザインCSSの読み込み -->
-  <link rel="stylesheet" href="CommonStyle_CSS.css">
-  <style>
-    /* 共通CSSに不足しているオシロスコープ固有のレイアウト・調整スタイル */
-    .oscillo-main-card {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .oscillo-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .oscillo-controls-inline {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    select {
-      background: var(--bg-card);
-      color: var(--text-main);
-      border: 2px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      padding: 0.4rem 0.8rem;
-      outline: none;
-      cursor: pointer;
-    }
-    select:focus {
-      border-color: var(--border-color-focus);
-    }
-    .agc-toggle-btn {
-      font-family: var(--font-family);
-      font-weight: 700;
-      font-size: 0.8rem;
-      padding: 0.4rem 0.8rem;
-      border-radius: var(--radius-sm);
-      border: 2px solid var(--border-color);
-      background-color: var(--bg-control);
-      color: var(--text-main);
-      cursor: pointer;
-      transition: background-color 0.2s, border-color 0.2s;
-    }
-    .agc-toggle-btn.active {
-      background-color: var(--accent-success);
-      color: var(--text-inverse);
-      border-color: var(--accent-success);
-    }
-    .oscillo-canvas-box {
-      position: relative;
-      width: 100%;
-      height: 60vh;
-      min-height: 350px;
-      background-color: var(--canvas-bg);
-      border: 2px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>スペクトルアナライザー</title>
+<style>
+:root{color-scheme:dark;--bg:#061014;--panel:#091a20;--line:#15515a;--grid:#17434a;--text:#d7f1f2;--muted:#8cb6bc;--green:#00ff72;--cyan:#35e7df;--yellow:#ffe34a;--red:#ff5f83}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at top,#0b2229 0,#04090d 70%);color:var(--text);font-family:Consolas,"Yu Gothic UI",Meiryo,monospace}
+header{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px 18px;border:1px solid #173a42;background:#071318;box-shadow:0 0 18px #00d9cc16}
+.brand{font-size:clamp(19px,2vw,28px);font-weight:800;letter-spacing:.04em;color:#26e4ad;margin-right:auto}
+.brand span{color:#7af9ee}
+button,select{font:inherit;color:var(--text);background:#13252d;border:1px solid #4b6b76;border-radius:7px;padding:9px 12px}
+button{cursor:pointer}button:hover{border-color:var(--cyan)}button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:#064e32;border-color:#00e66a;color:#eafff1;font-weight:bold}
+button.stop{background:#17262e}
+.control{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+select{min-width:115px}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(260px,.8fr);gap:12px;padding:14px}
+.panel{background:linear-gradient(145deg,#07171c,#061116);border:1px solid var(--line);border-radius:8px;box-shadow:inset 0 0 20px #00f0d005;min-width:0}
+.panel h2{font-size:17px;color:var(--cyan);font-weight:700;margin:0;padding:12px 15px;border-bottom:1px solid #123d44}
+.chart-wrap{padding:8px 10px 12px;position:relative}
+canvas{display:block;width:100%;height:100%}
+#spectrum{height:390px}#wave{height:270px}
+.left{display:grid;gap:12px;align-content:start}.right{display:grid;gap:12px;align-content:start}
+.metrics{padding:0 12px}.metric{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid #17373d;font-size:14px}
+.num{font-weight:bold;text-align:center;border-radius:4px;background:#0e4c45;color:#fff;padding:2px 0}.metric:last-child{border-bottom:0}
+.small-panel{padding:12px}.small-panel h3{margin:0 0 10px;color:var(--cyan);font-size:15px}
+.cursor-readout{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 2px;color:var(--muted)}.cursor-readout strong{color:var(--text);font-weight:600}
+.setting{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0;color:var(--muted);font-size:13px}.setting select{width:58%}
+.actions{display:flex;gap:8px}.actions button{flex:1}
+.status{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #1c6d4c;background:#09261c;border-radius:7px;color:#79ffb1;font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:#00ff72;box-shadow:0 0 8px #00ff72}
+.note{font-size:12px;line-height:1.6;color:#8eafb5;padding:0 15px 13px}
+.meter{height:12px;background:#102229;border:1px solid #29454d;border-radius:3px;overflow:hidden;margin:8px 0 4px}.meter-fill{height:100%;width:0;background:linear-gradient(90deg,#00e66a,#b7ff31,#ffca3a,#ff526c)}
+footer{color:#76969d;font-size:11px;padding:0 16px 16px}
+@media(max-width:850px){main{grid-template-columns:1fr}.right{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))}#spectrum{height:320px}#wave{height:230px}header{align-items:flex-start}.brand{width:100%}}
+</style>
 </head>
 <body>
-
-  <header class="sim-header">
-    <h1 style="font-size: 1.25rem; color: var(--accent-primary);">Oscilloscope</h1>
-    <span class="sim-badge" id="statusBadge">状態: 停止中</span>
-  </header>
-
-  <main class="sim-container">
-    <div class="sim-card oscillo-main-card">
-      
-      <!-- ツールバー（操作パネル） -->
-      <div class="oscillo-toolbar">
-        <div class="oscillo-controls-inline">
-          <div class="sim-control-group" style="padding: 0.5rem 0.8rem;">
-            <span class="sim-label" style="font-size: 0.75rem; margin-bottom: 2px;">時間軸 (Time/DIV)</span>
-            <select id="timeSelect">
-              <option value="1">1 ms/div</option>
-              <option value="2">2 ms/div</option>
-              <option value="5" selected>5 ms/div</option>
-              <option value="10">10 ms/div</option>
-              <option value="20">20 ms/div</option>
-            </select>
-          </div>
-
-          <div class="sim-control-group" style="padding: 0.5rem 0.8rem;">
-            <span class="sim-label" style="font-size: 0.75rem; margin-bottom: 2px;">電圧軸 (Volt/DIV)</span>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <select id="voltSelect">
-                <option value="5">5 mV/div</option>
-                <option value="10" selected>10 mV/div</option>
-                <option value="20">20 mV/div</option>
-                <option value="50">50 mV/div</option>
-                <option value="100">100 mV/div</option>
-              </select>
-              <button class="agc-toggle-btn" id="agcBtn">AGC: OFF</button>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <button class="sim-btn sim-btn-primary" id="toggleBtn">測定開始</button>
-        </div>
-      </div>
-
-      <!-- オシロスコープ描画スクリーン -->
-      <div class="oscillo-canvas-box">
-        <canvas id="oscilloCanvas"></canvas>
-      </div>
-
+<header>
+  <div class="brand">〰 <span>SPECTRUM</span> ANALYZER</div>
+  <div class="status"><i class="dot"></i><span id="statusText">マイク未接続</span></div>
+  <button id="startBtn" class="primary">▶ 開始</button><button id="stopBtn" class="stop" disabled>■ 停止</button>
+  <label class="control">FFTサイズ
+    <select id="fftSize"><option>2048</option><option selected>4096</option><option>8192</option><option>16384</option></select>
+  </label>
+  <label class="control">表示モード
+    <select id="scaleMode"><option value="log" selected>対数（Log）</option><option value="linear">リニア（Linear）</option></select>
+  </label>
+</header>
+<main>
+  <section class="left">
+    <div class="panel">
+      <h2>▮ 周波数スペクトル <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / Frequency Domain</span></h2>
+      <div class="chart-wrap"><canvas id="spectrum"></canvas></div>
     </div>
-  </main>
-
+    <div class="panel">
+      <h2>▮ 時間波形 <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / Time Domain</span></h2>
+      <div class="chart-wrap"><canvas id="wave"></canvas></div>
+    </div>
+  </section>
+  <aside class="right">
+    <div class="panel">
+      <h2>ピーク周波数（上位5つ）</h2>
+      <div class="metrics" id="peaks">
+        <div class="metric"><span class="num">—</span><span>解析待機中</span><span>—</span></div>
+      </div>
+    </div>
+    <div class="panel small-panel">
+      <h3>⌖ カーソル位置</h3>
+      <div class="cursor-readout"><span>周波数</span><strong id="cursorFreq">— Hz</strong></div>
+      <div class="cursor-readout"><span>レベル</span><strong id="cursorLevel">— dB</strong></div>
+      <div class="note">スペクトルグラフ上にマウスを移動すると値を表示します。</div>
+    </div>
+    <div class="panel small-panel">
+      <h3>▰ 表示・解析設定</h3>
+      <label class="setting"><span>最大値保持（Peak Hold）</span><input type="checkbox" id="holdToggle" checked></label>
+      <div class="actions"><button id="resetHold">最大値をリセット</button></div>
+      <label class="setting"><span>周波数範囲</span><select id="freqRange"><option value="20000" selected>20 Hz ～ 20 kHz</option><option value="10000">20 Hz ～ 10 kHz</option><option value="5000">20 Hz ～ 5 kHz</option><option value="2000">20 Hz ～ 2 kHz</option></select></label>
+      <label class="setting"><span>下限レベル</span><select id="floor"><option value="-120">−120 dB</option><option value="-100" selected>−100 dB</option><option value="-80">−80 dB</option><option value="-60">−60 dB</option></select></label>
+    </div>
+    <div class="panel small-panel">
+      <h3>入力レベル</h3><div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+      <div style="display:flex;justify-content:space-between;color:#8cb6bc;font-size:12px"><span>低</span><span id="levelText">入力待機中</span><span>高</span></div>
+      <div class="note" style="padding:10px 0 0">マイクの使用にはブラウザーの許可が必要です。HTTPSまたはlocalhostで開いてください。</div>
+    </div>
+  </aside>
+</main>
+<footer>ブラウザー標準 Web Audio API 使用 ｜ レベル表示は相対値です。マイク・部屋・入力回路の特性に影響されます。</footer>
 <script>
-  const canvas = document.getElementById('oscilloCanvas');
-  const ctx = canvas.getContext('2d');
-  const toggleBtn = document.getElementById('toggleBtn');
-  const statusBadge = document.getElementById('statusBadge');
-  const timeSelect = document.getElementById('timeSelect');
-  const voltSelect = document.getElementById('voltSelect');
-  const agcBtn = document.getElementById('agcBtn');
+(() => {
+  const $ = id => document.getElementById(id);
+  const specCanvas = $('spectrum'), waveCanvas = $('wave');
+  const specCtx = specCanvas.getContext('2d'), waveCtx = waveCanvas.getContext('2d');
+  let audioCtx = null, stream = null, source = null, analyser = null, raf = 0;
+  let freqData = null, timeData = null, holdData = null, currentBins = null;
+  let cursorX = null, cursorFreq = null, latestSampleRate = 44100;
+  const colors = ['#ffe34a','#00ff72','#35e7df','#3298ff','#d34cff'];
 
-  let audioCtx = null;
-  let analyser = null;
-  let dataArray = null;
-  let isRunning = false;
-  let isAgcOn = false;
-  let mediaStream = null;
-
-  function resizeCanvas() {
-    canvas.width = canvas.clientWidth * window.devicePixelRatio;
-    canvas.height = canvas.clientHeight * window.devicePixelRatio;
+  function resizeCanvas(canvas, ctx) {
+    const dpr = window.devicePixelRatio || 1;
+    const r = canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round(r.width*dpr)), h = Math.max(1, Math.round(r.height*dpr));
+    if(canvas.width!==w || canvas.height!==h){canvas.width=w;canvas.height=h;}
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w:r.width,h:r.height};
   }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  async function startAudioStream() {
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop());
-    }
-
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: isAgcOn
-      }
+  function grid(ctx, w, h, m, xTicks, yTicks, xLabel, yLabel, yFormat) {
+    ctx.clearRect(0,0,w,h); ctx.fillStyle='#041015';ctx.fillRect(0,0,w,h);
+    ctx.font='12px Consolas, monospace';ctx.lineWidth=1;
+    yTicks.forEach(v=>{
+      const y=m.t+(1-(v-yTicks[0])/(yTicks[yTicks.length-1]-yTicks[0]))*(h-m.t-m.b);
+      ctx.strokeStyle='#17434a';ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(w-m.r,y);ctx.stroke();
+      ctx.fillStyle='#a9cbd0';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(yFormat(v),m.l-8,y);
     });
-
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } else if (audioCtx.state === 'suspended') {
-      await audioCtx.resume();
-    }
-
-    const source = audioCtx.createMediaStreamSource(mediaStream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 4096;
-
-    source.connect(analyser);
-    dataArray = new Uint8Array(analyser.fftSize);
+    xTicks.forEach(t=>{
+      const x=t.x;
+      ctx.strokeStyle='#10373d';ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,h-m.b);ctx.stroke();
+      ctx.fillStyle='#a9cbd0';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(t.label,x,h-m.b+8);
+    });
+    ctx.strokeStyle='#2c6a72';ctx.strokeRect(m.l,m.t,w-m.l-m.r,h-m.t-m.b);
+    ctx.fillStyle='#b9e1e4';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(xLabel,(m.l+w-m.r)/2,h-1);
+    ctx.save();ctx.translate(15,(m.t+h-m.b)/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(yLabel,0,0);ctx.restore();
   }
-
-  agcBtn.addEventListener('click', async () => {
-    isAgcOn = !isAgcOn;
-    if (isAgcOn) {
-      agcBtn.innerText = "AGC: ON";
-      agcBtn.classList.add('active');
-    } else {
-      agcBtn.innerText = "AGC: OFF";
-      agcBtn.classList.remove('active');
+  function freqToX(f, minF, maxF, m, w) {
+    const mode=$('scaleMode').value;
+    const a=mode==='log'?Math.log(minF):minF, b=mode==='log'?Math.log(maxF):maxF, v=mode==='log'?Math.log(Math.max(minF,f)):f;
+    return m.l+(v-a)/(b-a)*(w-m.l-m.r);
+  }
+  function xToFreq(x,minF,maxF,m,w) {
+    const t=Math.max(0,Math.min(1,(x-m.l)/(w-m.l-m.r)));
+    return $('scaleMode').value==='log'?minF*Math.pow(maxF/minF,t):minF+(maxF-minF)*t;
+  }
+  function formatFreq(f){return f>=1000?(f/1000).toFixed(f>=10000?1:2)+' kHz':f.toFixed(1)+' Hz';}
+  function getTicks(minF,maxF,m,w){
+    const vals=$('scaleMode').value==='log'?[20,30,50,100,200,300,500,1000,2000,3000,5000,10000,20000]:[0,1000,2000,3000,4000,5000,10000,15000,20000];
+    return vals.filter(v=>v>=minF&&v<=maxF).map(v=>({x:freqToX(v,minF,maxF,m,w),label:v>=1000?(v/1000)+'k':v}));
+  }
+  function drawSpectrum(){
+    const {w,h}=resizeCanvas(specCanvas,specCtx),m={l:66,r:18,t:18,b:43};
+    const minF=20,maxF=Number($('freqRange').value),floor=Number($('floor').value);
+    const yTicks=[floor, floor*.75, floor*.5, floor*.25, 0].map(v=>Math.round(v));
+    grid(specCtx,w,h,m,getTicks(minF,maxF,m,w),yTicks,'周波数 [Hz]','レベル [dB]',v=>v+'');
+    if(!analyser||!freqData){specCtx.fillStyle='#51777d';specCtx.textAlign='center';specCtx.font='14px sans-serif';specCtx.fillText('「開始」を押してマイクを接続してください',w/2,h/2);return;}
+    const nyquist=latestSampleRate/2, binHz=latestSampleRate/analyser.fftSize;
+    const pts=[];
+    for(let i=1;i<freqData.length;i++){
+      const f=i*binHz;if(f<minF||f>Math.min(maxF,nyquist))continue;
+      let db=freqData[i];db=Math.max(floor,Math.min(0,db));
+      const x=freqToX(f,minF,maxF,m,w), y=m.t+(0-db)/(0-floor)*(h-m.t-m.b);
+      pts.push({i,f,db,x,y});
     }
-
-    if (isRunning) {
-      await startAudioStream();
-      statusBadge.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
-    }
-  });
-
-  toggleBtn.addEventListener('click', async () => {
-    if (!audioCtx) {
-      try {
-        await startAudioStream();
-        isRunning = true;
-        toggleBtn.innerText = "一時停止";
-        toggleBtn.classList.remove('sim-btn-primary');
-        toggleBtn.classList.add('sim-btn-outline');
-        statusBadge.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
-        draw();
-      } catch (err) {
-        alert("マイク（音声入力）のアクセス許可が必要です: " + err);
+    if(pts.length){
+      specCtx.beginPath();pts.forEach((p,j)=>j?specCtx.lineTo(p.x,p.y):specCtx.moveTo(p.x,p.y));
+      specCtx.lineTo(pts[pts.length-1].x,h-m.b);specCtx.lineTo(pts[0].x,h-m.b);specCtx.closePath();
+      const grad=specCtx.createLinearGradient(0,m.t,0,h-m.b);grad.addColorStop(0,'#00ff7230');grad.addColorStop(1,'#00ff7200');specCtx.fillStyle=grad;specCtx.fill();
+      specCtx.beginPath();pts.forEach((p,j)=>j?specCtx.lineTo(p.x,p.y):specCtx.moveTo(p.x,p.y));specCtx.strokeStyle='#00ff72';specCtx.lineWidth=1.7;specCtx.shadowColor='#00ff72';specCtx.shadowBlur=5;specCtx.stroke();specCtx.shadowBlur=0;
+      if($('holdToggle').checked&&holdData){
+        specCtx.beginPath();let begun=false;
+        pts.forEach(p=>{const db=Math.max(floor,Math.min(0,holdData[p.i]));const y=m.t+(0-db)/(0-floor)*(h-m.t-m.b);if(!begun){specCtx.moveTo(p.x,y);begun=true}else specCtx.lineTo(p.x,y);});
+        specCtx.strokeStyle='#ffe34a';specCtx.lineWidth=1;specCtx.setLineDash([4,4]);specCtx.stroke();specCtx.setLineDash([]);
       }
-    } else if (audioCtx.state === 'running') {
-      await audioCtx.suspend();
-      isRunning = false;
-      toggleBtn.innerText = "測定再開";
-      toggleBtn.classList.remove('sim-btn-outline');
-      toggleBtn.classList.add('sim-btn-primary');
-      statusBadge.innerText = "状態: 一時停止中";
-    } else {
-      await audioCtx.resume();
-      isRunning = true;
-      toggleBtn.innerText = "一時停止";
-      toggleBtn.classList.remove('sim-btn-primary');
-      toggleBtn.classList.add('sim-btn-outline');
-      statusBadge.innerText = `状態: 計測中 (AGC: ${isAgcOn ? 'ON' : 'OFF'})`;
-      draw();
+      const peaks=findPeaks(freqData,binHz,minF,Math.min(maxF,nyquist),floor);
+      peaks.forEach((p,i)=>{
+        const x=freqToX(p.f,minF,maxF,m,w),y=m.t+(0-Math.max(floor,Math.min(0,p.db)))/(0-floor)*(h-m.t-m.b);
+        specCtx.beginPath();specCtx.arc(x,y,4,0,Math.PI*2);specCtx.fillStyle=colors[i];specCtx.fill();
+      });
+      renderPeaks(peaks);
+      currentBins={m,w,h,minF,maxF,floor,binHz};
+      if(cursorX!==null&&cursorX>=m.l&&cursorX<=w-m.r){
+        const f=xToFreq(cursorX,minF,maxF,m,w),i=Math.max(0,Math.min(freqData.length-1,Math.round(f/binHz)));
+        const db=freqData[i];const y=m.t+(0-Math.max(floor,Math.min(0,db)))/(0-floor)*(h-m.t-m.b);
+        specCtx.strokeStyle='#35e7df';specCtx.setLineDash([3,4]);specCtx.beginPath();specCtx.moveTo(cursorX,m.t);specCtx.lineTo(cursorX,h-m.b);specCtx.stroke();specCtx.setLineDash([]);
+        specCtx.fillStyle='#35e7df';specCtx.beginPath();specCtx.arc(cursorX,y,4,0,Math.PI*2);specCtx.fill();
+        $('cursorFreq').textContent=formatFreq(f);$('cursorLevel').textContent=db.toFixed(1)+' dB';
+      }
     }
-  });
-
-  function draw() {
-    if (!isRunning) return;
-    requestAnimationFrame(draw);
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // 背景クリア (CUD準拠の明るい/ダークトーンキャンバス背景)
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, w, h);
-
-    // グリッド描画 (10 DIV x 8 DIV)
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1 * window.devicePixelRatio;
-    const cols = 10;
-    const rows = 8;
-
-    for (let i = 1; i < cols; i++) {
-      const x = (w / cols) * i;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-    }
-    for (let j = 1; j < rows; j++) {
-      const y = (h / rows) * j;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
-
-    // センター軸
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-
-    // 波形データ取得 (Time Domain)
-    analyser.getByteTimeDomainData(dataArray);
-
-    const timeDivMs = parseFloat(timeSelect.value);
-    const voltDivMv = parseFloat(voltSelect.value);
-
-    // 時間軸スパン計算
-    const totalDisplayTimeMs = timeDivMs * cols;
-    const sampleRate = audioCtx.sampleRate;
-    const samplesToDisplay = Math.floor((totalDisplayTimeMs / 1000) * sampleRate);
-
-    // 電圧スケール計算
-    const scaleFactor = (10 / voltDivMv);
-
-    ctx.lineWidth = 2 * window.devicePixelRatio;
-    ctx.strokeStyle = '#0284c7'; // CUDアクセントカラー
-    ctx.beginPath();
-
-    const sliceWidth = w / samplesToDisplay;
-    let x = 0;
-
-    for (let i = 0; i < samplesToDisplay; i++) {
-      if (i >= dataArray.length) break;
-
-      const v = (dataArray[i] - 128) / 128.0;
-      const scaledV = v * scaleFactor;
-      const y = (h / 2) - (scaledV * (h / 2));
-
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-
-      x += sliceWidth;
-    }
-    ctx.stroke();
   }
+  function findPeaks(data,binHz,minF,maxF,floor){
+    const peaks=[], minBin=Math.max(2,Math.ceil(minF/binHz)), maxBin=Math.min(data.length-2,Math.floor(maxF/binHz));
+    for(let i=minBin;i<=maxBin;i++){
+      if(data[i]>data[i-1]&&data[i]>=data[i+1]&&data[i]>floor+5){
+        const f=i*binHz;
+        if(peaks.every(p=>Math.abs(p.f-f)>Math.max(25,binHz*3)))peaks.push({f,db:data[i],i});
+      }
+    }
+    return peaks.sort((a,b)=>b.db-a.db).slice(0,5);
+  }
+  function renderPeaks(peaks){
+    $('peaks').innerHTML=peaks.length?peaks.map((p,i)=>`<div class="metric"><span class="num" style="background:${colors[i]};color:#041015">${i+1}</span><span>${formatFreq(p.f)}</span><strong>${p.db.toFixed(1)} dB</strong></div>`).join(''):'<div class="metric"><span>—</span><span>明瞭なピークなし</span><span>—</span></div>';
+  }
+  function drawWave(){
+    const {w,h}=resizeCanvas(waveCanvas,waveCtx),m={l:58,r:18,t:18,b:40};
+    const yTicks=[-1,-.5,0,.5,1],xTicks=[0,1,2,3,4,5].map(v=>({x:m.l+v/5*(w-m.l-m.r),label:(v*4).toFixed(0)}));
+    grid(waveCtx,w,h,m,xTicks,yTicks,'時間 [ms]','振幅',v=>v.toFixed(1));
+    if(!analyser||!timeData){waveCtx.fillStyle='#51777d';waveCtx.textAlign='center';waveCtx.font='14px sans-serif';waveCtx.fillText('時間波形はここに表示されます',w/2,h/2);return;}
+    const usable=w-m.l-m.r, top=m.t, bottom=h-m.b;
+    waveCtx.beginPath();
+    const step=Math.max(1,Math.floor(timeData.length/usable));
+    let first=true;
+    for(let x=0;x<usable;x++){
+      const idx=Math.min(timeData.length-1,Math.floor(x/usable*timeData.length));
+      const v=timeData[idx]/128-1,y=top+(1-v)/2*(bottom-top);
+      if(first){waveCtx.moveTo(m.l+x,y);first=false}else waveCtx.lineTo(m.l+x,y);
+    }
+    waveCtx.strokeStyle='#00ff72';waveCtx.lineWidth=1.7;waveCtx.shadowColor='#00ff72';waveCtx.shadowBlur=4;waveCtx.stroke();waveCtx.shadowBlur=0;
+  }
+  function tick(){
+    if(!analyser)return;
+    analyser.getFloatFrequencyData(freqData);analyser.getByteTimeDomainData(timeData);
+    if(holdData&&$('holdToggle').checked){for(let i=0;i<freqData.length;i++)holdData[i]=Math.max(holdData[i],freqData[i]);}
+    let peak=0;for(let i=0;i<timeData.length;i++)peak=Math.max(peak,Math.abs(timeData[i]-128)/128);
+    $('meterFill').style.width=Math.min(100,peak*100)+'%';$('levelText').textContent=(20*Math.log10(Math.max(peak,1e-5))).toFixed(1)+' dBFS';
+    drawSpectrum();drawWave();raf=requestAnimationFrame(tick);
+  }
+  async function start(){
+    try{
+      $('startBtn').disabled=true;$('statusText').textContent='接続中…';
+      stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      await audioCtx.resume();latestSampleRate=audioCtx.sampleRate;
+      source=audioCtx.createMediaStreamSource(stream);analyser=audioCtx.createAnalyser();
+      analyser.fftSize=Number($('fftSize').value);analyser.smoothingTimeConstant=.65;analyser.minDecibels=-120;analyser.maxDecibels=0;
+      source.connect(analyser);
+      freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);
+      $('statusText').textContent='マイク入力中';$('stopBtn').disabled=false;$('startBtn').textContent='● 接続中';$('levelText').textContent='測定中';
+      tick();
+    }catch(e){
+      $('statusText').textContent='接続できません';$('startBtn').disabled=false;
+      alert('マイクに接続できませんでした。ブラウザーのマイク使用許可と、HTTPSまたはlocalhostで開いていることを確認してください。\\n\\n'+e.message);
+    }
+  }
+  async function stop(){
+    cancelAnimationFrame(raf);raf=0;
+    if(stream)stream.getTracks().forEach(t=>t.stop());
+    if(audioCtx)await audioCtx.close();
+    stream=null;audioCtx=null;source=null;analyser=null;freqData=null;timeData=null;holdData=null;
+    $('statusText').textContent='マイク未接続';$('startBtn').disabled=false;$('startBtn').textContent='▶ 開始';$('stopBtn').disabled=true;
+    $('meterFill').style.width='0%';$('levelText').textContent='入力待機中';
+    renderPeaks([]);drawSpectrum();drawWave();
+  }
+  $('startBtn').addEventListener('click',start);$('stopBtn').addEventListener('click',stop);
+  $('fftSize').addEventListener('change',()=>{
+    if(analyser){analyser.fftSize=Number($('fftSize').value);freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);}
+    drawSpectrum();drawWave();
+  });
+  $('resetHold').addEventListener('click',()=>{if(holdData)holdData.fill(-Infinity);});
+  $('holdToggle').addEventListener('change',()=>{if(!holdData)return;if(!$('holdToggle').checked)holdData.fill(-Infinity);});
+  ['scaleMode','freqRange','floor'].forEach(id=>$(id).addEventListener('change',()=>{drawSpectrum();}));
+  specCanvas.addEventListener('mousemove',e=>{const r=specCanvas.getBoundingClientRect();cursorX=e.clientX-r.left;drawSpectrum();});
+  specCanvas.addEventListener('mouseleave',()=>{cursorX=null;$('cursorFreq').textContent='— Hz';$('cursorLevel').textContent='— dB';drawSpectrum();});
+  window.addEventListener('resize',()=>{drawSpectrum();drawWave();});
+  drawSpectrum();drawWave();
+})();
 </script>
 </body>
 </html>
