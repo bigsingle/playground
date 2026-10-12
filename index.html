@@ -17,25 +17,17 @@ button.primary{background:#064e32;border-color:#00e66a;color:#eafff1;font-weight
 button.stop{background:#17262e}
 .control{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
 select{min-width:115px}
-main{display:grid;grid-template-columns:minmax(0,3fr) minmax(260px,.8fr);gap:12px;padding:14px}
+main{display:grid;grid-template-columns:1fr;gap:12px;padding:14px}
 .panel{background:linear-gradient(145deg,#07171c,#061116);border:1px solid var(--line);border-radius:8px;box-shadow:inset 0 0 20px #00f0d005;min-width:0}
 .panel h2{font-size:17px;color:var(--cyan);font-weight:700;margin:0;padding:12px 15px;border-bottom:1px solid #123d44}
 .chart-wrap{padding:8px 10px 12px;position:relative}
-canvas{display:block;width:100%;height:100%}
-#spectrum{height:390px}#wave{height:270px}
-.left{display:grid;gap:12px;align-content:start}.right{display:grid;gap:12px;align-content:start}
-.metrics{padding:0 12px}.metric{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid #17373d;font-size:14px}
-.num{font-weight:bold;text-align:center;border-radius:4px;background:#0e4c45;color:#fff;padding:2px 0}.metric:last-child{border-bottom:0}
-.small-panel{padding:12px}.small-panel h3{margin:0 0 10px;color:var(--cyan);font-size:15px}
-.cursor-readout{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 2px;color:var(--muted)}.cursor-readout strong{color:var(--text);font-weight:600}
-.setting{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0;color:var(--muted);font-size:13px}.setting select{width:58%}
-.actions{display:flex;gap:8px}.actions button{flex:1}
+canvas{display:block;width:100%;height:100%;cursor:pointer}
+#spectrum{height:420px}#wave{height:280px}
+.left{display:grid;gap:12px;align-content:start}
 .status{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #1c6d4c;background:#09261c;border-radius:7px;color:#79ffb1;font-size:13px}
 .dot{width:8px;height:8px;border-radius:50%;background:#00ff72;box-shadow:0 0 8px #00ff72}
-.note{font-size:12px;line-height:1.6;color:#8eafb5;padding:0 15px 13px}
-.meter{height:12px;background:#102229;border:1px solid #29454d;border-radius:3px;overflow:hidden;margin:8px 0 4px}.meter-fill{height:100%;width:0;background:linear-gradient(90deg,#00e66a,#b7ff31,#ffca3a,#ff526c)}
 footer{color:#76969d;font-size:11px;padding:0 16px 16px}
-@media(max-width:850px){main{grid-template-columns:1fr}.right{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))}#spectrum{height:320px}#wave{height:230px}header{align-items:flex-start}.brand{width:100%}}
+@media(max-width:850px){#spectrum{height:320px}#wave{height:230px}header{align-items:flex-start}.brand{width:100%}}
 </style>
 </head>
 <body>
@@ -47,13 +39,22 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     <select id="fftSize"><option>2048</option><option selected>4096</option><option>8192</option><option>16384</option></select>
   </label>
   <label class="control">表示モード
-    <select id="scaleMode"><option value="log" selected>対数（Log）</option><option value="linear">リニア（Linear）</option></select>
+    <select id="scaleMode"><option value="log">対数（Log）</option><option value="linear" selected>リニア（Linear）</option></select>
   </label>
+  <button id="resetHold">最大値をリセット</button>
 </header>
+
+<!-- 非表示の設定項目保持用 -->
+<div style="display:none">
+  <input type="checkbox" id="holdToggle" checked>
+  <select id="freqRange"><option value="20000" selected>20 Hz ～ 20 kHz</option></select>
+  <select id="floor"><option value="-100" selected>−100 dB</option></select>
+</div>
+
 <main>
   <section class="left">
     <div class="panel">
-      <h2>▮ 周波数スペクトル <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / Frequency Domain</span></h2>
+      <h2>▮ 周波数スペクトル <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / グラフ面タップで一時停止・再開</span></h2>
       <div class="chart-wrap"><canvas id="spectrum"></canvas></div>
     </div>
     <div class="panel">
@@ -61,42 +62,16 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       <div class="chart-wrap"><canvas id="wave"></canvas></div>
     </div>
   </section>
-  <aside class="right">
-    <div class="panel">
-      <h2>ピーク周波数（上位5つ）</h2>
-      <div class="metrics" id="peaks">
-        <div class="metric"><span class="num">—</span><span>解析待機中</span><span>—</span></div>
-      </div>
-    </div>
-    <div class="panel small-panel">
-      <h3>⌖ カーソル位置</h3>
-      <div class="cursor-readout"><span>周波数</span><strong id="cursorFreq">— Hz</strong></div>
-      <div class="cursor-readout"><span>レベル</span><strong id="cursorLevel">— dB</strong></div>
-      <div class="note">スペクトルグラフ上にマウスを移動すると値を表示します。</div>
-    </div>
-    <div class="panel small-panel">
-      <h3>▰ 表示・解析設定</h3>
-      <label class="setting"><span>最大値保持（Peak Hold）</span><input type="checkbox" id="holdToggle" checked></label>
-      <div class="actions"><button id="resetHold">最大値をリセット</button></div>
-      <label class="setting"><span>周波数範囲</span><select id="freqRange"><option value="20000" selected>20 Hz ～ 20 kHz</option><option value="10000">20 Hz ～ 10 kHz</option><option value="5000">20 Hz ～ 5 kHz</option><option value="2000">20 Hz ～ 2 kHz</option></select></label>
-      <label class="setting"><span>下限レベル</span><select id="floor"><option value="-120">−120 dB</option><option value="-100" selected>−100 dB</option><option value="-80">−80 dB</option><option value="-60">−60 dB</option></select></label>
-    </div>
-    <div class="panel small-panel">
-      <h3>入力レベル</h3><div class="meter"><div class="meter-fill" id="meterFill"></div></div>
-      <div style="display:flex;justify-content:space-between;color:#8cb6bc;font-size:12px"><span>低</span><span id="levelText">入力待機中</span><span>高</span></div>
-      <div class="note" style="padding:10px 0 0">マイクの使用にはブラウザーの許可が必要です。HTTPSまたはlocalhostで開いてください。</div>
-    </div>
-  </aside>
 </main>
 <footer>ブラウザー標準 Web Audio API 使用 ｜ レベル表示は相対値です。マイク・部屋・入力回路の特性に影響されます。</footer>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const specCanvas = $('spectrum'), waveCanvas = $('wave');
+  const specCanvas = $('spectrum'), waveCanvas =$('wave');
   const specCtx = specCanvas.getContext('2d'), waveCtx = waveCanvas.getContext('2d');
   let audioCtx = null, stream = null, source = null, analyser = null, raf = 0;
-  let freqData = null, timeData = null, holdData = null, currentBins = null;
-  let cursorX = null, cursorFreq = null, latestSampleRate = 44100;
+  let freqData = null, timeData = null, holdData = null;
+  let latestSampleRate = 44100;
   const colors = ['#ffe34a','#00ff72','#35e7df','#3298ff','#d34cff'];
 
   function resizeCanvas(canvas, ctx) {
@@ -128,10 +103,6 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     const mode=$('scaleMode').value;
     const a=mode==='log'?Math.log(minF):minF, b=mode==='log'?Math.log(maxF):maxF, v=mode==='log'?Math.log(Math.max(minF,f)):f;
     return m.l+(v-a)/(b-a)*(w-m.l-m.r);
-  }
-  function xToFreq(x,minF,maxF,m,w) {
-    const t=Math.max(0,Math.min(1,(x-m.l)/(w-m.l-m.r)));
-    return $('scaleMode').value==='log'?minF*Math.pow(maxF/minF,t):minF+(maxF-minF)*t;
   }
   function formatFreq(f){return f>=1000?(f/1000).toFixed(f>=10000?1:2)+' kHz':f.toFixed(1)+' Hz';}
   function getTicks(minF,maxF,m,w){
@@ -166,16 +137,14 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       peaks.forEach((p,i)=>{
         const x=freqToX(p.f,minF,maxF,m,w),y=m.t+(0-Math.max(floor,Math.min(0,p.db)))/(0-floor)*(h-m.t-m.b);
         specCtx.beginPath();specCtx.arc(x,y,4,0,Math.PI*2);specCtx.fillStyle=colors[i];specCtx.fill();
+        
+        // グラフ上にピーク情報を表示
+        specCtx.fillStyle=colors[i];
+        specCtx.font='11px Consolas, monospace';
+        specCtx.textAlign='center';
+        specCtx.textBaseline='bottom';
+        specCtx.fillText(`${i+1}: ${formatFreq(p.f)} (${p.db.toFixed(1)}dB)`, x, y - 6);
       });
-      renderPeaks(peaks);
-      currentBins={m,w,h,minF,maxF,floor,binHz};
-      if(cursorX!==null&&cursorX>=m.l&&cursorX<=w-m.r){
-        const f=xToFreq(cursorX,minF,maxF,m,w),i=Math.max(0,Math.min(freqData.length-1,Math.round(f/binHz)));
-        const db=freqData[i];const y=m.t+(0-Math.max(floor,Math.min(0,db)))/(0-floor)*(h-m.t-m.b);
-        specCtx.strokeStyle='#35e7df';specCtx.setLineDash([3,4]);specCtx.beginPath();specCtx.moveTo(cursorX,m.t);specCtx.lineTo(cursorX,h-m.b);specCtx.stroke();specCtx.setLineDash([]);
-        specCtx.fillStyle='#35e7df';specCtx.beginPath();specCtx.arc(cursorX,y,4,0,Math.PI*2);specCtx.fill();
-        $('cursorFreq').textContent=formatFreq(f);$('cursorLevel').textContent=db.toFixed(1)+' dB';
-      }
     }
   }
   function findPeaks(data,binHz,minF,maxF,floor){
@@ -187,9 +156,6 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       }
     }
     return peaks.sort((a,b)=>b.db-a.db).slice(0,5);
-  }
-  function renderPeaks(peaks){
-    $('peaks').innerHTML=peaks.length?peaks.map((p,i)=>`<div class="metric"><span class="num" style="background:${colors[i]};color:#041015">${i+1}</span><span>${formatFreq(p.f)}</span><strong>${p.db.toFixed(1)} dB</strong></div>`).join(''):'<div class="metric"><span>—</span><span>明瞭なピークなし</span><span>—</span></div>';
   }
   function drawWave(){
     const {w,h}=resizeCanvas(waveCanvas,waveCtx),m={l:58,r:18,t:18,b:40};
@@ -211,8 +177,6 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     if(!analyser)return;
     analyser.getFloatFrequencyData(freqData);analyser.getByteTimeDomainData(timeData);
     if(holdData&&$('holdToggle').checked){for(let i=0;i<freqData.length;i++)holdData[i]=Math.max(holdData[i],freqData[i]);}
-    let peak=0;for(let i=0;i<timeData.length;i++)peak=Math.max(peak,Math.abs(timeData[i]-128)/128);
-    $('meterFill').style.width=Math.min(100,peak*100)+'%';$('levelText').textContent=(20*Math.log10(Math.max(peak,1e-5))).toFixed(1)+' dBFS';
     drawSpectrum();drawWave();raf=requestAnimationFrame(tick);
   }
   async function start(){
@@ -225,11 +189,11 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       analyser.fftSize=Number($('fftSize').value);analyser.smoothingTimeConstant=.65;analyser.minDecibels=-120;analyser.maxDecibels=0;
       source.connect(analyser);
       freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);
-      $('statusText').textContent='マイク入力中';$('stopBtn').disabled=false;$('startBtn').textContent='● 接続中';$('levelText').textContent='測定中';
+      $('statusText').textContent='マイク入力中';$('stopBtn').disabled=false;$('startBtn').textContent='● 接続中';
       tick();
     }catch(e){
       $('statusText').textContent='接続できません';$('startBtn').disabled=false;
-      alert('マイクに接続できませんでした。ブラウザーのマイク使用許可と、HTTPSまたはlocalhostで開いていることを確認してください。\\n\\n'+e.message);
+      alert('マイクに接続できませんでした。ブラウザーのマイク使用許可と、HTTPSまたはlocalhostで開いていることを確認してください。\n\n'+e.message);
     }
   }
   async function stop(){
@@ -238,19 +202,29 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     if(audioCtx)await audioCtx.close();
     stream=null;audioCtx=null;source=null;analyser=null;freqData=null;timeData=null;holdData=null;
     $('statusText').textContent='マイク未接続';$('startBtn').disabled=false;$('startBtn').textContent='▶ 開始';$('stopBtn').disabled=true;
-    $('meterFill').style.width='0%';$('levelText').textContent='入力待機中';
-    renderPeaks([]);drawSpectrum();drawWave();
+    drawSpectrum();drawWave();
   }
-  $('startBtn').addEventListener('click',start);$('stopBtn').addEventListener('click',stop);
-  $('fftSize').addEventListener('change',()=>{
+  
+  // グラフ面タップで一時停止/再開
+  async function togglePause() {
+    if(!audioCtx) return;
+    if(audioCtx.state === 'running') {
+      await audioCtx.suspend();
+      $('statusText').textContent = '一時停止中';
+    } else if(audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+      $('statusText').textContent = 'マイク入力中';
+    }
+  }
+
+  specCanvas.addEventListener('click', togglePause);
+  waveCanvas.addEventListener('click', togglePause);
+
+  $('startBtn').addEventListener('click',start);$('stopBtn').addEventListener('click',stop);$('fftSize').addEventListener('change',()=>{
     if(analyser){analyser.fftSize=Number($('fftSize').value);freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);}
     drawSpectrum();drawWave();
   });
-  $('resetHold').addEventListener('click',()=>{if(holdData)holdData.fill(-Infinity);});
-  $('holdToggle').addEventListener('change',()=>{if(!holdData)return;if(!$('holdToggle').checked)holdData.fill(-Infinity);});
-  ['scaleMode','freqRange','floor'].forEach(id=>$(id).addEventListener('change',()=>{drawSpectrum();}));
-  specCanvas.addEventListener('mousemove',e=>{const r=specCanvas.getBoundingClientRect();cursorX=e.clientX-r.left;drawSpectrum();});
-  specCanvas.addEventListener('mouseleave',()=>{cursorX=null;$('cursorFreq').textContent='— Hz';$('cursorLevel').textContent='— dB';drawSpectrum();});
+  $('resetHold').addEventListener('click',()=>{if(holdData)holdData.fill(-Infinity);});$('scaleMode').addEventListener('change',()=>{drawSpectrum();});
   window.addEventListener('resize',()=>{drawSpectrum();drawWave();});
   drawSpectrum();drawWave();
 })();
