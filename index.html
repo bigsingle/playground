@@ -60,7 +60,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     <div class="panel">
       <h2>▮ 周波数スペクトル </h2>
       <div class="chart-wrap"><canvas id="spectrum"></canvas></div>
-      <div class="range-control"><label for="freqRange">表示範囲：<strong id="freqRangeValue">1000 Hz</strong></label><input id="freqRange" type="range" min="100" max="20000" step="100" value="1000"><div class="range-ends"><span>100 Hz</span><span>20 kHz</span></div></div>
+      <div class="range-control"><label for="freqRange">表示範囲：<strong id="freqRangeValue">500 Hz</strong></label><input id="freqRange" type="range" min="100" max="1000" step="100" value="500"><div class="range-ends"><span>100 Hz</span><span>1000 Hz</span></div></div>
     </div>
     <div class="panel">
       <h2>▮ 時間波形 </h2>
@@ -152,7 +152,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
         specCtx.strokeStyle='#ffe34a';specCtx.lineWidth=1;specCtx.setLineDash([4,4]);specCtx.stroke();specCtx.setLineDash([]);
       }
       const peaks=findPeaks(holdData || freqData,binHz,Math.max(minF,binHz),Math.min(maxF,nyquist),floor);
-      // 周波数ラベルが横方向で重ならないよう、近いピークを交互の高さに配置する
+      // ラベルはプロット領域内に収め、重なりがあれば上下段へ配置する
       const labelItems=peaks.map((p,i)=>{
         const x=freqToX(p.f,minF,maxF,m,w),y=m.t+(0-Math.max(floor,Math.min(0,p.db)))/(0-floor)*(h-m.t-m.b);
         return {p,i,x,y,label:formatFreq(p.f)};
@@ -161,20 +161,30 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       labelItems.forEach(item=>{
         specCtx.beginPath();specCtx.arc(item.x,item.y,4,0,Math.PI*2);specCtx.fillStyle=colors[item.i];specCtx.fill();
         specCtx.font='bold 16px Consolas, monospace';
-        const labelW=specCtx.measureText(item.label).width;
-        let tx=Math.max(m.l+2,Math.min(w-m.r-labelW-2,item.x+7));
-        let ty=Math.max(m.t+15,item.y-9);
-        // ラベル同士が近い場合は上下にずらし、必要なら左右位置も調整
-        for(let attempt=0;attempt<10;attempt++){
-          const overlap=placed.some(q=>Math.abs((q.x)-(tx+labelW/2))<(q.w+labelW)/2+5 && Math.abs(q.y-ty)<17);
-          if(!overlap)break;
-          ty-=18;
-          if(ty<m.t+13){ty=Math.min(h-m.b-3,item.y+18+(attempt%3)*17);}
-          tx=Math.max(m.l+2,Math.min(w-m.r-labelW-2,item.x-labelW-7));
+        const labelW=specCtx.measureText(item.label).width, labelH=17;
+        const left=m.l+3, right=w-m.r-3-labelW, top=m.t+labelH, bottom=h-m.b-3;
+        const candidates=[];
+        // ピークの上下を起点に、グラフ内の複数段を候補にする
+        for(let row=0;row<Math.ceil((bottom-top)/19);row++){
+          const up=item.y-10-row*19, down=item.y+20+row*19;
+          if(up>=top)candidates.push(up);
+          if(down<=bottom)candidates.push(down);
         }
-        placed.push({x:tx+labelW/2,y:ty,w:labelW});
-        specCtx.lineWidth=3;specCtx.strokeStyle='#041015';specCtx.strokeText(item.label,tx,ty);
-        specCtx.fillStyle=colors[item.i];specCtx.fillText(item.label,tx,ty);
+        if(!candidates.length)candidates.push(Math.max(top,Math.min(bottom,item.y-8)));
+        let best=null,bestScore=Infinity;
+        for(const ty0 of candidates){
+          for(const tx0 of [item.x+7,item.x-labelW-7,item.x-labelW/2]){
+            const tx=Math.max(left,Math.min(right,tx0));
+            const overlap=placed.some(q=>tx<q.x+q.w+4 && tx+labelW+4>q.x && ty0<q.y+labelH+2 && ty0+2>q.y);
+            const score=(overlap?100000:0)+Math.abs(ty0-(item.y-10))+Math.abs((tx+labelW/2)-item.x)*0.15;
+            if(score<bestScore){bestScore=score;best={x:tx,y:ty0,w:labelW};}
+          }
+          if(bestScore<100000)break;
+        }
+        if(!best)best={x:Math.max(left,Math.min(right,item.x-labelW/2)),y:Math.max(top,Math.min(bottom,item.y-8)),w:labelW};
+        placed.push(best);
+        specCtx.lineWidth=3;specCtx.strokeStyle='#041015';specCtx.strokeText(item.label,best.x,best.y);
+        specCtx.fillStyle=colors[item.i];specCtx.fillText(item.label,best.x,best.y);
       });
       currentBins={m,w,h,minF,maxF,floor,binHz};
     }
@@ -255,14 +265,17 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
   $('timeRange').addEventListener('input',()=>{timeOffset=0;$('timeRangeValue').textContent=$('timeRange').value+' ms';drawWave();});
 
   function setupSwipe(canvas, slider, valueLabel, unit){
-    let startX=null,startY=null;
-    canvas.addEventListener('pointerdown',e=>{startX=e.clientX;startY=e.clientY;});
-    canvas.addEventListener('pointerup',e=>{
+    let startX=null,startY=null,lastX=null,moved=false;
+    canvas.addEventListener('pointerdown',e=>{
+      startX=lastX=e.clientX;startY=e.clientY;moved=false;
+      if(canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove',e=>{
       if(startX===null)return;
-      const dx=e.clientX-startX,dy=e.clientY-startY;
-      if(Math.abs(dx)>18 && Math.abs(dx)>Math.abs(dy)){
-        const rect=canvas.getBoundingClientRect();
-        const fraction=-dx/Math.max(1,rect.width);
+      const dx=e.clientX-lastX, totalX=e.clientX-startX, totalY=e.clientY-startY;
+      if(Math.abs(totalX)>8 && Math.abs(totalX)>Math.abs(totalY))moved=true;
+      if(moved){
+        const rect=canvas.getBoundingClientRect(), fraction=-dx/Math.max(1,rect.width);
         if(slider.id==='freqRange'){
           const maxF=Math.min(20000,latestSampleRate/2),span=Number(slider.value);
           spectrumOffset=Math.max(0,Math.min(Math.max(0,maxF-span),spectrumOffset+fraction*span));
@@ -272,12 +285,17 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
           timeOffset=Math.max(0,Math.min(maxStart,timeOffset+fraction*span));
           drawWave();
         }
-      }else if(Math.abs(dx)<=18 && Math.abs(dy)<=18){
-        toggleCapture();
       }
-      startX=null;startY=null;
+      lastX=e.clientX;
     });
-    canvas.addEventListener('pointercancel',()=>{startX=null;startY=null;});
+    const finish=e=>{
+      if(startX===null)return;
+      const dx=e.clientX-startX,dy=e.clientY-startY;
+      if(!moved && Math.abs(dx)<=18 && Math.abs(dy)<=18)toggleCapture();
+      startX=null;startY=null;lastX=null;moved=false;
+    };
+    canvas.addEventListener('pointerup',finish);
+    canvas.addEventListener('pointercancel',()=>{startX=null;startY=null;lastX=null;moved=false;});
   }
   setupSwipe(specCanvas,$('freqRange'),$('freqRangeValue'),'Hz');
   setupSwipe(waveCanvas,$('timeRange'),$('timeRangeValue'),'ms');
