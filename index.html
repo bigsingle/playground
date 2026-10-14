@@ -22,7 +22,7 @@ button.stop{background:#17262e}
 .range-ends{display:flex;justify-content:space-between;font-size:14px;color:#648b91}
 .chart-wrap{touch-action:pan-y}
 canvas{touch-action:pan-y}
-#spectrum,#wave{cursor:ew-resize}
+#spectrum,#wave{cursor:crosshair}
 .control{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:17px}
 select{min-width:115px}
 main{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:14px}
@@ -49,9 +49,9 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
 <body>
 <header>
   <div class="brand">〰 <span>SPECTRUM</span> ANALYZER</div>
-  <button id="startBtn" class="primary">▶ 開始</button>
-  <label class="control">FFTサイズ
-    <select id="fftSize"><option>2048</option><option selected>4096</option><option>8192</option><option>16384</option></select>
+  <button id="startBtn" class="primary" hidden>▶ 開始</button>
+  <label class="control" hidden>FFTサイズ
+    <select id="fftSize"><option>16384</option></select>
   </label>
 
 </header>
@@ -80,6 +80,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
   let latestSampleRate = 44100, paused = false;
   let spectrumOffset = 0, timeOffset = 0, rollingWave = new Float32Array(96000), rollingWrite = 0, lastWavePush = 0;
   const colors = ['#ffe34a','#00ff72','#35e7df','#3298ff','#d34cff'];
+  const FIXED_FFT_SIZE = 16384;
 
   function resizeCanvas(canvas, ctx) {
     const dpr = window.devicePixelRatio || 1;
@@ -131,7 +132,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     const minF=Math.max(0,Math.min(spectrumOffset,Math.max(0,maxAvailable-spanF))),maxF=Math.min(maxAvailable,minF+spanF),floor=-100;
     const yTicks=[floor, floor*.75, floor*.5, floor*.25, 0].map(v=>Math.round(v));
     grid(specCtx,w,h,m,getTicks(minF,maxF,m,w),yTicks,'周波数 [Hz]','',v=>v+'');
-    if(!analyser||!freqData){specCtx.fillStyle='#51777d';specCtx.textAlign='center';specCtx.font='14px sans-serif';specCtx.fillText('タップ・スワイプで操作',w/2,h/2);return;}
+    if(!analyser||!freqData){specCtx.fillStyle='#51777d';specCtx.textAlign='center';specCtx.font='14px sans-serif';specCtx.fillText('グラフをタップして開始',w/2,h/2);return;}
     const nyquist=latestSampleRate/2, binHz=latestSampleRate/analyser.fftSize;
     const pts=[];
     for(let i=1;i<freqData.length;i++){
@@ -151,16 +152,29 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
         specCtx.strokeStyle='#ffe34a';specCtx.lineWidth=1;specCtx.setLineDash([4,4]);specCtx.stroke();specCtx.setLineDash([]);
       }
       const peaks=findPeaks(holdData || freqData,binHz,Math.max(minF,binHz),Math.min(maxF,nyquist),floor);
-      peaks.forEach((p,i)=>{
+      // 周波数ラベルが横方向で重ならないよう、近いピークを交互の高さに配置する
+      const labelItems=peaks.map((p,i)=>{
         const x=freqToX(p.f,minF,maxF,m,w),y=m.t+(0-Math.max(floor,Math.min(0,p.db)))/(0-floor)*(h-m.t-m.b);
-        specCtx.beginPath();specCtx.arc(x,y,4,0,Math.PI*2);specCtx.fillStyle=colors[i];specCtx.fill();
-        const label=formatFreq(p.f);
-        specCtx.font='16px Consolas, monospace';
-        specCtx.textAlign=x>w-165?'right':'left';
-        const tx=x>w-165?x-7:x+7;
-        const ty=Math.max(m.t+12,y-8-(i%2)*13);
-        specCtx.lineWidth=3;specCtx.strokeStyle='#041015';specCtx.strokeText(label,tx,ty);
-        specCtx.fillStyle=colors[i];specCtx.fillText(label,tx,ty);
+        return {p,i,x,y,label:formatFreq(p.f)};
+      }).sort((a,b)=>a.x-b.x);
+      const placed=[];
+      labelItems.forEach(item=>{
+        specCtx.beginPath();specCtx.arc(item.x,item.y,4,0,Math.PI*2);specCtx.fillStyle=colors[item.i];specCtx.fill();
+        specCtx.font='bold 16px Consolas, monospace';
+        const labelW=specCtx.measureText(item.label).width;
+        let tx=Math.max(m.l+2,Math.min(w-m.r-labelW-2,item.x+7));
+        let ty=Math.max(m.t+15,item.y-9);
+        // ラベル同士が近い場合は上下にずらし、必要なら左右位置も調整
+        for(let attempt=0;attempt<10;attempt++){
+          const overlap=placed.some(q=>Math.abs((q.x)-(tx+labelW/2))<(q.w+labelW)/2+5 && Math.abs(q.y-ty)<17);
+          if(!overlap)break;
+          ty-=18;
+          if(ty<m.t+13){ty=Math.min(h-m.b-3,item.y+18+(attempt%3)*17);}
+          tx=Math.max(m.l+2,Math.min(w-m.r-labelW-2,item.x-labelW-7));
+        }
+        placed.push({x:tx+labelW/2,y:ty,w:labelW});
+        specCtx.lineWidth=3;specCtx.strokeStyle='#041015';specCtx.strokeText(item.label,tx,ty);
+        specCtx.fillStyle=colors[item.i];specCtx.fillText(item.label,tx,ty);
       });
       currentBins={m,w,h,minF,maxF,floor,binHz};
     }
@@ -179,7 +193,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     const {w,h}=resizeCanvas(waveCanvas,waveCtx),m={l:20,r:18,t:18,b:46};
     const duration=Number($('timeRange').value),maxDuration=2000, timeStart=Math.max(0,Math.min(timeOffset,maxDuration-duration)),yTicks=[-1,-.5,0,.5,1],xTicks=[0,1,2,3,4,5].map(v=>({x:m.l+v/5*(w-m.l-m.r),label:(timeStart+v*duration/5).toFixed(0)}));
     grid(waveCtx,w,h,m,xTicks,yTicks,'時間 [ms]','',v=>v.toFixed(1));
-    if(!analyser||!timeData){waveCtx.fillStyle='#51777d';waveCtx.textAlign='center';waveCtx.font='14px sans-serif';waveCtx.fillText('タップ・スワイプで操作',w/2,h/2);return;}
+    if(!analyser||!timeData){waveCtx.fillStyle='#51777d';waveCtx.textAlign='center';waveCtx.font='14px sans-serif';waveCtx.fillText('グラフをタップして開始',w/2,h/2);return;}
     const usable=w-m.l-m.r, top=m.t, bottom=h-m.b;
     const visibleSamples=Math.max(2,Math.min(rollingWave.length,Math.floor(latestSampleRate*Number($('timeRange').value)/1000)));
     const startIndex=((rollingWrite-visibleSamples)%rollingWave.length+rollingWave.length)%rollingWave.length;
@@ -209,7 +223,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       audioCtx=new (window.AudioContext||window.webkitAudioContext)();
       await audioCtx.resume();latestSampleRate=audioCtx.sampleRate;
       source=audioCtx.createMediaStreamSource(stream);analyser=audioCtx.createAnalyser();
-      analyser.fftSize=Number($('fftSize').value);analyser.smoothingTimeConstant=.65;analyser.minDecibels=-120;analyser.maxDecibels=0;
+      analyser.fftSize=FIXED_FFT_SIZE;analyser.smoothingTimeConstant=.65;analyser.minDecibels=-120;analyser.maxDecibels=0;
       source.connect(analyser);
       freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);
       $('startBtn').disabled=false;$('startBtn').textContent='■ 停止（リセット）';
@@ -228,9 +242,13 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     $('startBtn').disabled=false;$('startBtn').textContent='▶ 開始';
     drawSpectrum();drawWave();
   }
-  $('startBtn').addEventListener('click',()=>{if(analyser){stop();}else{start();}});
+  $('startBtn').addEventListener('click',()=>{if(!analyser)start();});
+  function toggleCapture(){
+    if(!analyser){start();return;}
+    if(paused){paused=false;tick();}else{paused=true;cancelAnimationFrame(raf);raf=0;}
+  }
   $('fftSize').addEventListener('change',()=>{
-    if(analyser){analyser.fftSize=Number($('fftSize').value);freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);}
+    if(analyser){analyser.fftSize=FIXED_FFT_SIZE;freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);}
     drawSpectrum();drawWave();
   });
   $('freqRange').addEventListener('input',()=>{spectrumOffset=0;$('freqRangeValue').textContent=Number($('freqRange').value)>=1000?(Number($('freqRange').value)/1000)+' kHz':$('freqRange').value+' Hz';drawSpectrum();});
@@ -254,6 +272,8 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
           timeOffset=Math.max(0,Math.min(maxStart,timeOffset+fraction*span));
           drawWave();
         }
+      }else if(Math.abs(dx)<=18 && Math.abs(dy)<=18){
+        toggleCapture();
       }
       startX=null;startY=null;
     });
@@ -261,6 +281,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
   }
   setupSwipe(specCanvas,$('freqRange'),$('freqRangeValue'),'Hz');
   setupSwipe(waveCanvas,$('timeRange'),$('timeRangeValue'),'ms');
+  // 両グラフともタップで開始・一時停止を切り替える。スワイプは表示範囲移動。
   window.addEventListener('resize',()=>{drawSpectrum();drawWave();});
   drawSpectrum();drawWave();
 })();
