@@ -17,17 +17,25 @@ button.primary{background:#064e32;border-color:#00e66a;color:#eafff1;font-weight
 button.stop{background:#17262e}
 .control{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
 select{min-width:115px}
-main{display:grid;grid-template-columns:1fr;gap:12px;padding:14px}
+main{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:14px}
 .panel{background:linear-gradient(145deg,#07171c,#061116);border:1px solid var(--line);border-radius:8px;box-shadow:inset 0 0 20px #00f0d005;min-width:0}
 .panel h2{font-size:17px;color:var(--cyan);font-weight:700;margin:0;padding:12px 15px;border-bottom:1px solid #123d44}
 .chart-wrap{padding:8px 10px 12px;position:relative}
-canvas{display:block;width:100%;height:100%;cursor:pointer}
-#spectrum{height:420px}#wave{height:280px}
-.left{display:grid;gap:12px;align-content:start}
+canvas{display:block;width:100%;height:100%}
+#spectrum{height:390px}#wave{height:270px}
+.left{display:grid;gap:12px;align-content:start}.right{display:none}
+.metrics{padding:0 12px}.metric{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid #17373d;font-size:14px}
+.num{font-weight:bold;text-align:center;border-radius:4px;background:#0e4c45;color:#fff;padding:2px 0}.metric:last-child{border-bottom:0}
+.small-panel{padding:12px}.small-panel h3{margin:0 0 10px;color:var(--cyan);font-size:15px}
+.cursor-readout{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 2px;color:var(--muted)}.cursor-readout strong{color:var(--text);font-weight:600}
+.setting{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0;color:var(--muted);font-size:13px}.setting select{width:58%}
+.actions{display:flex;gap:8px}.actions button{flex:1}
 .status{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #1c6d4c;background:#09261c;border-radius:7px;color:#79ffb1;font-size:13px}
 .dot{width:8px;height:8px;border-radius:50%;background:#00ff72;box-shadow:0 0 8px #00ff72}
+.note{font-size:12px;line-height:1.6;color:#8eafb5;padding:0 15px 13px}
+.meter{height:12px;background:#102229;border:1px solid #29454d;border-radius:3px;overflow:hidden;margin:8px 0 4px}.meter-fill{height:100%;width:0;background:linear-gradient(90deg,#00e66a,#b7ff31,#ffca3a,#ff526c)}
 footer{color:#76969d;font-size:11px;padding:0 16px 16px}
-@media(max-width:850px){#spectrum{height:320px}#wave{height:230px}header{align-items:flex-start}.brand{width:100%}}
+@media(max-width:850px){main{grid-template-columns:1fr}.right{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))}#spectrum{height:320px}#wave{height:230px}header{align-items:flex-start}.brand{width:100%}}
 </style>
 </head>
 <body>
@@ -41,25 +49,17 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
   <label class="control">表示モード
     <select id="scaleMode"><option value="log">対数（Log）</option><option value="linear" selected>リニア（Linear）</option></select>
   </label>
-  <button id="resetHold">最大値をリセット</button>
+  <button id="resetHold" title="最大値保持をリセット">最大値リセット</button>
 </header>
-
-<!-- 非表示の設定項目保持用 -->
-<div style="display:none">
-  <input type="checkbox" id="holdToggle" checked>
-  <select id="freqRange"><option value="20000" selected>20 Hz ～ 20 kHz</option></select>
-  <select id="floor"><option value="-100" selected>−100 dB</option></select>
-</div>
-
 <main>
   <section class="left">
     <div class="panel">
-      <h2>▮ 周波数スペクトル <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / グラフ面タップで一時停止・再開</span></h2>
-      <div class="chart-wrap"><canvas id="spectrum"></canvas></div>
+      <h2>▮ 周波数スペクトル <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / Frequency Domain</span></h2>
+      <div class="note">グラフ面をタップ／クリックすると一時停止・再開します。</div><div class="chart-wrap"><canvas id="spectrum"></canvas></div>
     </div>
     <div class="panel">
       <h2>▮ 時間波形 <span style="font-size:12px;color:#7aa8ad;font-weight:400"> / Time Domain</span></h2>
-      <div class="chart-wrap"><canvas id="wave"></canvas></div>
+      <div class="note">グラフ面をタップ／クリックすると一時停止・再開します。</div><div class="chart-wrap"><canvas id="wave"></canvas></div>
     </div>
   </section>
 </main>
@@ -67,11 +67,11 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const specCanvas = $('spectrum'), waveCanvas =$('wave');
+  const specCanvas = $('spectrum'), waveCanvas = $('wave');
   const specCtx = specCanvas.getContext('2d'), waveCtx = waveCanvas.getContext('2d');
   let audioCtx = null, stream = null, source = null, analyser = null, raf = 0;
-  let freqData = null, timeData = null, holdData = null;
-  let latestSampleRate = 44100;
+  let freqData = null, timeData = null, holdData = null, currentBins = null;
+  let latestSampleRate = 44100, paused = false;
   const colors = ['#ffe34a','#00ff72','#35e7df','#3298ff','#d34cff'];
 
   function resizeCanvas(canvas, ctx) {
@@ -104,6 +104,10 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     const a=mode==='log'?Math.log(minF):minF, b=mode==='log'?Math.log(maxF):maxF, v=mode==='log'?Math.log(Math.max(minF,f)):f;
     return m.l+(v-a)/(b-a)*(w-m.l-m.r);
   }
+  function xToFreq(x,minF,maxF,m,w) {
+    const t=Math.max(0,Math.min(1,(x-m.l)/(w-m.l-m.r)));
+    return $('scaleMode').value==='log'?minF*Math.pow(maxF/minF,t):minF+(maxF-minF)*t;
+  }
   function formatFreq(f){return f>=1000?(f/1000).toFixed(f>=10000?1:2)+' kHz':f.toFixed(1)+' Hz';}
   function getTicks(minF,maxF,m,w){
     const vals=$('scaleMode').value==='log'?[20,30,50,100,200,300,500,1000,2000,3000,5000,10000,20000]:[0,1000,2000,3000,4000,5000,10000,15000,20000];
@@ -111,7 +115,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
   }
   function drawSpectrum(){
     const {w,h}=resizeCanvas(specCanvas,specCtx),m={l:66,r:18,t:18,b:43};
-    const minF=20,maxF=Number($('freqRange').value),floor=Number($('floor').value);
+    const minF=20,maxF=20000,floor=-100;
     const yTicks=[floor, floor*.75, floor*.5, floor*.25, 0].map(v=>Math.round(v));
     grid(specCtx,w,h,m,getTicks(minF,maxF,m,w),yTicks,'周波数 [Hz]','レベル [dB]',v=>v+'');
     if(!analyser||!freqData){specCtx.fillStyle='#51777d';specCtx.textAlign='center';specCtx.font='14px sans-serif';specCtx.fillText('「開始」を押してマイクを接続してください',w/2,h/2);return;}
@@ -128,7 +132,7 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       specCtx.lineTo(pts[pts.length-1].x,h-m.b);specCtx.lineTo(pts[0].x,h-m.b);specCtx.closePath();
       const grad=specCtx.createLinearGradient(0,m.t,0,h-m.b);grad.addColorStop(0,'#00ff7230');grad.addColorStop(1,'#00ff7200');specCtx.fillStyle=grad;specCtx.fill();
       specCtx.beginPath();pts.forEach((p,j)=>j?specCtx.lineTo(p.x,p.y):specCtx.moveTo(p.x,p.y));specCtx.strokeStyle='#00ff72';specCtx.lineWidth=1.7;specCtx.shadowColor='#00ff72';specCtx.shadowBlur=5;specCtx.stroke();specCtx.shadowBlur=0;
-      if($('holdToggle').checked&&holdData){
+      if(holdData){
         specCtx.beginPath();let begun=false;
         pts.forEach(p=>{const db=Math.max(floor,Math.min(0,holdData[p.i]));const y=m.t+(0-db)/(0-floor)*(h-m.t-m.b);if(!begun){specCtx.moveTo(p.x,y);begun=true}else specCtx.lineTo(p.x,y);});
         specCtx.strokeStyle='#ffe34a';specCtx.lineWidth=1;specCtx.setLineDash([4,4]);specCtx.stroke();specCtx.setLineDash([]);
@@ -137,14 +141,15 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       peaks.forEach((p,i)=>{
         const x=freqToX(p.f,minF,maxF,m,w),y=m.t+(0-Math.max(floor,Math.min(0,p.db)))/(0-floor)*(h-m.t-m.b);
         specCtx.beginPath();specCtx.arc(x,y,4,0,Math.PI*2);specCtx.fillStyle=colors[i];specCtx.fill();
-        
-        // グラフ上にピーク情報を表示
-        specCtx.fillStyle=colors[i];
+        const label=formatFreq(p.f)+'  '+p.db.toFixed(1)+' dB';
         specCtx.font='11px Consolas, monospace';
-        specCtx.textAlign='center';
-        specCtx.textBaseline='bottom';
-        specCtx.fillText(`${i+1}: ${formatFreq(p.f)} (${p.db.toFixed(1)}dB)`, x, y - 6);
+        specCtx.textAlign=x>w-165?'right':'left';
+        const tx=x>w-165?x-7:x+7;
+        const ty=Math.max(m.t+12,y-8-(i%2)*13);
+        specCtx.lineWidth=3;specCtx.strokeStyle='#041015';specCtx.strokeText(label,tx,ty);
+        specCtx.fillStyle=colors[i];specCtx.fillText(label,tx,ty);
       });
+      currentBins={m,w,h,minF,maxF,floor,binHz};
     }
   }
   function findPeaks(data,binHz,minF,maxF,floor){
@@ -174,12 +179,13 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     waveCtx.strokeStyle='#00ff72';waveCtx.lineWidth=1.7;waveCtx.shadowColor='#00ff72';waveCtx.shadowBlur=4;waveCtx.stroke();waveCtx.shadowBlur=0;
   }
   function tick(){
-    if(!analyser)return;
+    if(!analyser || paused)return;
     analyser.getFloatFrequencyData(freqData);analyser.getByteTimeDomainData(timeData);
-    if(holdData&&$('holdToggle').checked){for(let i=0;i<freqData.length;i++)holdData[i]=Math.max(holdData[i],freqData[i]);}
+    if(holdData){for(let i=0;i<freqData.length;i++)holdData[i]=Math.max(holdData[i],freqData[i]);}
     drawSpectrum();drawWave();raf=requestAnimationFrame(tick);
   }
   async function start(){
+    paused=false;
     try{
       $('startBtn').disabled=true;$('statusText').textContent='接続中…';
       stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
@@ -193,10 +199,11 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
       tick();
     }catch(e){
       $('statusText').textContent='接続できません';$('startBtn').disabled=false;
-      alert('マイクに接続できませんでした。ブラウザーのマイク使用許可と、HTTPSまたはlocalhostで開いていることを確認してください。\n\n'+e.message);
+      alert('マイクに接続できませんでした。ブラウザーのマイク使用許可と、HTTPSまたはlocalhostで開いていることを確認してください。\\n\\n'+e.message);
     }
   }
   async function stop(){
+    paused=false;
     cancelAnimationFrame(raf);raf=0;
     if(stream)stream.getTracks().forEach(t=>t.stop());
     if(audioCtx)await audioCtx.close();
@@ -204,27 +211,30 @@ footer{color:#76969d;font-size:11px;padding:0 16px 16px}
     $('statusText').textContent='マイク未接続';$('startBtn').disabled=false;$('startBtn').textContent='▶ 開始';$('stopBtn').disabled=true;
     drawSpectrum();drawWave();
   }
-  
-  // グラフ面タップで一時停止/再開
-  async function togglePause() {
-    if(!audioCtx) return;
-    if(audioCtx.state === 'running') {
-      await audioCtx.suspend();
-      $('statusText').textContent = '一時停止中';
-    } else if(audioCtx.state === 'suspended') {
-      await audioCtx.resume();
-      $('statusText').textContent = 'マイク入力中';
+  function togglePause(){
+    if(!analyser)return;
+    paused=!paused;
+    if(paused){
+      cancelAnimationFrame(raf);
+      $('statusText').textContent='一時停止中';
+      $('startBtn').textContent='▶ 再開';
+    }else{
+      $('statusText').textContent='マイク入力中';
+      $('startBtn').textContent='● 接続中';
+      tick();
     }
   }
-
-  specCanvas.addEventListener('click', togglePause);
-  waveCanvas.addEventListener('click', togglePause);
-
-  $('startBtn').addEventListener('click',start);$('stopBtn').addEventListener('click',stop);$('fftSize').addEventListener('change',()=>{
+  $('startBtn').addEventListener('click',()=>{if(analyser&&paused){togglePause();}else if(!analyser){start();}});
+  $('stopBtn').addEventListener('click',stop);
+  specCanvas.addEventListener('click',togglePause);
+  waveCanvas.addEventListener('click',togglePause);
+  specCanvas.style.cursor='pointer';waveCanvas.style.cursor='pointer';
+  $('fftSize').addEventListener('change',()=>{
     if(analyser){analyser.fftSize=Number($('fftSize').value);freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);}
     drawSpectrum();drawWave();
   });
-  $('resetHold').addEventListener('click',()=>{if(holdData)holdData.fill(-Infinity);});$('scaleMode').addEventListener('change',()=>{drawSpectrum();});
+  $('resetHold').addEventListener('click',()=>{if(holdData){holdData.fill(-Infinity);drawSpectrum();}});
+  $('scaleMode').addEventListener('change',drawSpectrum);
   window.addEventListener('resize',()=>{drawSpectrum();drawWave();});
   drawSpectrum();drawWave();
 })();
