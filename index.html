@@ -1,308 +1,280 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>スペクトルアナライザー</title>
+<title>NE555 周波数測定テスト</title>
 <style>
-:root{color-scheme:dark;--bg:#061014;--panel:#091a20;--line:#15515a;--grid:#17434a;--text:#d7f1f2;--muted:#8cb6bc;--green:#00ff72;--cyan:#35e7df;--yellow:#ffe34a;--red:#ff5f83}
-*{box-sizing:border-box}
-body{margin:0;background:radial-gradient(ellipse at top,#0b2229 0,#04090d 70%);color:var(--text);font-family:Consolas,"Yu Gothic UI",Meiryo,monospace}
-header{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px 18px;border:1px solid #173a42;background:#071318;box-shadow:0 0 18px #00d9cc16}
-.brand{font-size:clamp(19px,2vw,28px);font-weight:800;letter-spacing:.04em;color:#26e4ad;margin-right:auto}
-.brand span{color:#7af9ee}
-button,select{font:inherit;font-size:17px;color:var(--text);background:#13252d;border:1px solid #4b6b76;border-radius:7px;padding:10px 14px}
-button{cursor:pointer}button:hover{border-color:var(--cyan)}button:disabled{opacity:.45;cursor:not-allowed}
-button.primary{background:#064e32;border-color:#00e66a;color:#eafff1;font-weight:bold}
-button.stop{background:#17262e}
-.range-control{padding:0 18px 14px;color:var(--muted);font-size:16px}
-.range-control label{display:flex;gap:8px;align-items:center;margin-bottom:6px}
-.range-control strong{color:var(--cyan);font-size:18px}
-.range-control input{display:block;width:100%;accent-color:#00ff72;cursor:pointer}
-.range-ends{display:flex;justify-content:space-between;font-size:14px;color:#648b91}
-.chart-wrap{touch-action:pan-y}
-canvas{touch-action:pan-y}
-#spectrum,#wave{cursor:crosshair}
-.control{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:17px}
-select{min-width:115px}
-main{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:14px}
-.panel{background:linear-gradient(145deg,#07171c,#061116);border:1px solid var(--line);border-radius:8px;box-shadow:inset 0 0 20px #00f0d005;min-width:0}
-.panel h2{font-size:21px;color:var(--cyan);font-weight:700;margin:0;padding:12px 15px;border-bottom:1px solid #123d44}
-.chart-wrap{padding:8px 10px 12px;position:relative}
-canvas{display:block;width:100%;height:100%}
-#spectrum{height:390px}#wave{height:270px}
-.left{display:grid;gap:12px;align-content:start}.right{display:none}
-.metrics{padding:0 12px}.metric{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid #17373d;font-size:14px}
-.num{font-weight:bold;text-align:center;border-radius:4px;background:#0e4c45;color:#fff;padding:2px 0}.metric:last-child{border-bottom:0}
-.small-panel{padding:12px}.small-panel h3{margin:0 0 10px;color:var(--cyan);font-size:15px}
-.cursor-readout{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 2px;color:var(--muted)}.cursor-readout strong{color:var(--text);font-weight:600}
-.setting{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0;color:var(--muted);font-size:13px}.setting select{width:58%}
-.actions{display:flex;gap:8px}.actions button{flex:1}
-.status{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #1c6d4c;background:#09261c;border-radius:7px;color:#79ffb1;font-size:13px}
-.dot{width:8px;height:8px;border-radius:50%;background:#00ff72;box-shadow:0 0 8px #00ff72}
-.note{font-size:12px;line-height:1.6;color:#8eafb5;padding:0 15px 13px}
-.meter{height:12px;background:#102229;border:1px solid #29454d;border-radius:3px;overflow:hidden;margin:8px 0 4px}.meter-fill{height:100%;width:0;background:linear-gradient(90deg,#00e66a,#b7ff31,#ffca3a,#ff526c)}
-footer{color:#76969d;font-size:11px;padding:0 16px 16px}
-@media(max-width:850px){main{grid-template-columns:1fr}.right{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))}#spectrum{height:320px}#wave{height:230px}header{align-items:flex-start}.brand{width:100%}}
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f2f4f7; color: #17202a;
+  }
+  main { max-width: 680px; margin: auto; }
+  h1 { font-size: 1.35rem; }
+  .panel {
+    background: white; border-radius: 14px;
+    padding: 16px; margin: 14px 0;
+    box-shadow: 0 2px 8px #0000000d;
+  }
+  .value {
+    font-size: clamp(2.2rem, 10vw, 3.5rem);
+    font-weight: 700; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit { text-align: center; color: #52616b; }
+  button {
+    border: 0; border-radius: 10px; padding: 13px 18px;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    background: #1266d6; color: white;
+  }
+  button:disabled { opacity: .45; }
+  .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+  canvas {
+    width: 100%; height: 160px;
+    background: #101820; border-radius: 8px;
+    display: block;
+  }
+  #status { line-height: 1.6; overflow-wrap: anywhere; }
+  .small { font-size: .85rem; color: #52616b; }
 </style>
 </head>
 <body>
-<header>
-  <div class="brand">〰 <span>SPECTRUM</span> ANALYZER</div>
-  <button id="startBtn" class="primary" hidden>▶ 開始</button>
-  <label class="control" hidden style="display:none">FFTサイズ
-    <select id="fftSize"><option>16384</option></select>
-  </label>
-
-</header>
 <main>
-  <section class="left">
-    <div class="panel">
-      <h2>▮ 周波数スペクトル </h2>
-      <div class="chart-wrap"><canvas id="spectrum"></canvas></div>
-      <div class="range-control"><label for="freqRange">表示範囲：<strong id="freqRangeValue">500 Hz</strong></label><input id="freqRange" type="range" min="100" max="1000" step="100" value="500"><div class="range-ends"><span>100 Hz</span><span>1000 Hz</span></div></div>
+  <h1>NE555 周波数測定テスト</h1>
+
+  <section class="panel">
+    <div class="unit">検出周波数</div>
+    <div class="value" id="freq">---.-</div>
+    <div class="unit">Hz</div>
+    <p id="level" class="unit">入力振幅：---</p>
+  </section>
+
+  <section class="panel">
+    <div class="buttons">
+      <button id="start">測定開始</button>
+      <button id="stop" disabled>停止</button>
     </div>
-    <div class="panel">
-      <h2>▮ 時間波形 </h2>
-      <div class="chart-wrap"><canvas id="wave"></canvas></div>
-      <div class="range-control"><label for="timeRange">時間範囲：<strong id="timeRangeValue">20 ms</strong></label><input id="timeRange" type="range" min="10" max="2000" step="10" value="20"><div class="range-ends"><span>10 ms</span><span>2000 ms</span></div></div>
-    </div>
+    <p id="status">接続を確認してから測定を開始してください。</p>
+    <p class="small">
+      周波数はマイク入力の波形から推定します。
+      この段階では電圧を表示しません。
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2 style="font-size:1rem">入力波形</h2>
+    <canvas id="wave" width="640" height="240"></canvas>
+    <p id="info" class="small">サンプリング周波数：---</p>
   </section>
 </main>
-<footer>レベル表示は相対値です。マイク・部屋・入力回路の特性に影響されます。</footer>
+
 <script>
-(() => {
-  const $ = id => document.getElementById(id);
-  const specCanvas = $('spectrum'), waveCanvas = $('wave');
-  const specCtx = specCanvas.getContext('2d'), waveCtx = waveCanvas.getContext('2d');
-  let audioCtx = null, stream = null, source = null, analyser = null, raf = 0;
-  let freqData = null, timeData = null, holdData = null, currentBins = null;
-  let latestSampleRate = 44100, paused = false;
-  let spectrumOffset = 0, timeOffset = 0, rollingWave = new Float32Array(96000), rollingWrite = 0, lastWavePush = 0;
-  const colors = ['#ffe34a','#00ff72','#35e7df','#3298ff','#d34cff'];
-  const FIXED_FFT_SIZE = 16384;
+"use strict";
 
-  function resizeCanvas(canvas, ctx) {
-    const dpr = window.devicePixelRatio || 1;
-    const r = canvas.getBoundingClientRect();
-    const w = Math.max(1, Math.round(r.width*dpr)), h = Math.max(1, Math.round(r.height*dpr));
-    if(canvas.width!==w || canvas.height!==h){canvas.width=w;canvas.height=h;}
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    return {w:r.width,h:r.height};
-  }
-  function grid(ctx, w, h, m, xTicks, yTicks, xLabel, yLabel, yFormat) {
-    ctx.clearRect(0,0,w,h); ctx.fillStyle='#041015';ctx.fillRect(0,0,w,h);
-    ctx.font='16px Consolas, monospace';ctx.lineWidth=1;
-    yTicks.forEach(v=>{
-      const y=m.t+(1-(v-yTicks[0])/(yTicks[yTicks.length-1]-yTicks[0]))*(h-m.t-m.b);
-      ctx.strokeStyle='#17434a';ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(w-m.r,y);ctx.stroke();
-      /* 縦軸の数値は非表示 */
-    });
-    xTicks.forEach(t=>{
-      const x=t.x;
-      ctx.strokeStyle='#10373d';ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,h-m.b);ctx.stroke();
-      ctx.fillStyle='#d7f1f2';ctx.font='16px Consolas, monospace';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(t.label,x,h-m.b+8);
-    });
-    ctx.strokeStyle='#2c6a72';ctx.strokeRect(m.l,m.t,w-m.l-m.r,h-m.t-m.b);
-    ctx.fillStyle='#b9e1e4';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(xLabel,(m.l+w-m.r)/2,h-1);
-    /* 縦軸タイトルは表示しない */
-  }
-  function freqToX(f, minF, maxF, m, w) {
-    const mode='linear';
-    const a=mode==='log'?Math.log(minF):minF, b=mode==='log'?Math.log(maxF):maxF, v=mode==='log'?Math.log(Math.max(minF,f)):f;
-    return m.l+(v-a)/(b-a)*(w-m.l-m.r);
-  }
-  function xToFreq(x,minF,maxF,m,w) {
-    const t=Math.max(0,Math.min(1,(x-m.l)/(w-m.l-m.r)));
-    return minF+(maxF-minF)*t;
-  }
-  function formatFreq(f){return f>=1000?(f/1000).toFixed(f>=10000?1:2)+' kHz':f.toFixed(1)+' Hz';}
-  function getTicks(minF,maxF,m,w){
-    const span=maxF-minF;
-    const raw=span/5;
-    const magnitude=Math.pow(10,Math.floor(Math.log10(Math.max(1,raw))));
-    const step=(raw/magnitude>=5?5:raw/magnitude>=2?2:1)*magnitude;
-    const vals=[]; for(let v=Math.ceil(minF/step)*step;v<=maxF+step*.01;v+=step) vals.push(Math.round(v));
-    if(vals.length<2){vals.length=0;for(let i=0;i<=5;i++)vals.push(Math.round(minF+span*i/5));}
-    return vals.map(v=>({x:freqToX(v,minF,maxF,m,w),label:v>=1000?(v/1000)+'k':v}));
-  }
-  function drawSpectrum(){
-    const {w,h}=resizeCanvas(specCanvas,specCtx),m={l:20,r:18,t:18,b:48};
-    const spanF=Number($('freqRange').value), maxAvailable=Math.min(20000,latestSampleRate/2);
-    const minF=Math.max(0,Math.min(spectrumOffset,Math.max(0,maxAvailable-spanF))),maxF=Math.min(maxAvailable,minF+spanF),floor=-100;
-    const yTicks=[floor, floor*.75, floor*.5, floor*.25, 0].map(v=>Math.round(v));
-    grid(specCtx,w,h,m,getTicks(minF,maxF,m,w),yTicks,'周波数 [Hz]','',v=>v+'');
-    if(!analyser||!freqData){specCtx.fillStyle='#51777d';specCtx.textAlign='center';specCtx.font='14px sans-serif';specCtx.fillText('グラフをタップして開始',w/2,h/2);return;}
-    const nyquist=latestSampleRate/2, binHz=latestSampleRate/analyser.fftSize;
-    const pts=[];
-    for(let i=1;i<freqData.length;i++){
-      const f=i*binHz;if(f<Math.max(minF,binHz)||f>Math.min(maxF,nyquist))continue;
-      let db=freqData[i];db=Math.max(floor,Math.min(0,db));
-      const x=freqToX(f,minF,maxF,m,w), y=m.t+(0-db)/(0-floor)*(h-m.t-m.b);
-      pts.push({i,f,db,x,y});
-    }
-    if(pts.length){
-      specCtx.beginPath();pts.forEach((p,j)=>j?specCtx.lineTo(p.x,p.y):specCtx.moveTo(p.x,p.y));
-      specCtx.lineTo(pts[pts.length-1].x,h-m.b);specCtx.lineTo(pts[0].x,h-m.b);specCtx.closePath();
-      const grad=specCtx.createLinearGradient(0,m.t,0,h-m.b);grad.addColorStop(0,'#00ff7230');grad.addColorStop(1,'#00ff7200');specCtx.fillStyle=grad;specCtx.fill();
-      specCtx.beginPath();pts.forEach((p,j)=>j?specCtx.lineTo(p.x,p.y):specCtx.moveTo(p.x,p.y));specCtx.strokeStyle='#00ff72';specCtx.lineWidth=1.7;specCtx.shadowColor='#00ff72';specCtx.shadowBlur=5;specCtx.stroke();specCtx.shadowBlur=0;
-      if(holdData){
-        specCtx.beginPath();let begun=false;
-        pts.forEach(p=>{const db=Math.max(floor,Math.min(0,holdData[p.i]));const y=m.t+(0-db)/(0-floor)*(h-m.t-m.b);if(!begun){specCtx.moveTo(p.x,y);begun=true}else specCtx.lineTo(p.x,y);});
-        specCtx.strokeStyle='#ffe34a';specCtx.lineWidth=1;specCtx.setLineDash([4,4]);specCtx.stroke();specCtx.setLineDash([]);
-      }
-      const peaks=findPeaks(holdData || freqData,binHz,Math.max(minF,binHz),Math.min(maxF,nyquist),floor);
-      // ラベルはプロット領域内に収め、重なりがあれば上下段へ配置する
-      const labelItems=peaks.map((p,i)=>{
-        const x=freqToX(p.f,minF,maxF,m,w),y=m.t+(0-Math.max(floor,Math.min(0,p.db)))/(0-floor)*(h-m.t-m.b);
-        return {p,i,x,y,label:formatFreq(p.f)};
-      }).sort((a,b)=>a.x-b.x);
-      const placed=[];
-      labelItems.forEach(item=>{
-        specCtx.beginPath();specCtx.arc(item.x,item.y,4,0,Math.PI*2);specCtx.fillStyle=colors[item.i];specCtx.fill();
-        specCtx.font='bold 16px Consolas, monospace';
-        const labelW=specCtx.measureText(item.label).width, labelH=17;
-        const left=m.l+3, right=w-m.r-3-labelW, top=m.t+labelH, bottom=h-m.b-3;
-        const candidates=[];
-        // ピークの上下を起点に、グラフ内の複数段を候補にする
-        for(let row=0;row<Math.ceil((bottom-top)/19);row++){
-          const up=item.y-10-row*19, down=item.y+20+row*19;
-          if(up>=top)candidates.push(up);
-          if(down<=bottom)candidates.push(down);
-        }
-        if(!candidates.length)candidates.push(Math.max(top,Math.min(bottom,item.y-8)));
-        let best=null,bestScore=Infinity;
-        for(const ty0 of candidates){
-          for(const tx0 of [item.x+7,item.x-labelW-7,item.x-labelW/2]){
-            const tx=Math.max(left,Math.min(right,tx0));
-            const overlap=placed.some(q=>tx<q.x+q.w+4 && tx+labelW+4>q.x && ty0<q.y+labelH+2 && ty0+2>q.y);
-            const score=(overlap?100000:0)+Math.abs(ty0-(item.y-10))+Math.abs((tx+labelW/2)-item.x)*0.15;
-            if(score<bestScore){bestScore=score;best={x:tx,y:ty0,w:labelW};}
-          }
-          if(bestScore<100000)break;
-        }
-        if(!best)best={x:Math.max(left,Math.min(right,item.x-labelW/2)),y:Math.max(top,Math.min(bottom,item.y-8)),w:labelW};
-        placed.push(best);
-        specCtx.lineWidth=3;specCtx.strokeStyle='#041015';specCtx.strokeText(item.label,best.x,best.y);
-        specCtx.fillStyle=colors[item.i];specCtx.fillText(item.label,best.x,best.y);
-      });
-      currentBins={m,w,h,minF,maxF,floor,binHz};
-    }
-  }
-  function findPeaks(data,binHz,minF,maxF,floor){
-    const peaks=[], minBin=Math.max(2,Math.ceil(minF/binHz)), maxBin=Math.min(data.length-2,Math.floor(maxF/binHz));
-    for(let i=minBin;i<=maxBin;i++){
-      if(data[i]>data[i-1]&&data[i]>=data[i+1]&&data[i]>floor+5){
-        const f=i*binHz;
-        if(peaks.every(p=>Math.abs(p.f-f)>Math.max(25,binHz*3)))peaks.push({f,db:data[i],i});
-      }
-    }
-    return peaks.sort((a,b)=>b.db-a.db).slice(0,5);
-  }
-  function drawWave(){
-    const {w,h}=resizeCanvas(waveCanvas,waveCtx),m={l:20,r:18,t:18,b:46};
-    const duration=Number($('timeRange').value),maxDuration=2000, timeStart=Math.max(0,Math.min(timeOffset,maxDuration-duration)),yTicks=[-1,-.5,0,.5,1],xTicks=[0,1,2,3,4,5].map(v=>({x:m.l+v/5*(w-m.l-m.r),label:(timeStart+v*duration/5).toFixed(0)}));
-    grid(waveCtx,w,h,m,xTicks,yTicks,'時間 [ms]','',v=>v.toFixed(1));
-    if(!analyser||!timeData){waveCtx.fillStyle='#51777d';waveCtx.textAlign='center';waveCtx.font='14px sans-serif';waveCtx.fillText('グラフをタップして開始',w/2,h/2);return;}
-    const usable=w-m.l-m.r, top=m.t, bottom=h-m.b;
-    const visibleSamples=Math.max(2,Math.min(rollingWave.length,Math.floor(latestSampleRate*Number($('timeRange').value)/1000)));
-    const startIndex=((rollingWrite-visibleSamples)%rollingWave.length+rollingWave.length)%rollingWave.length;
-    waveCtx.beginPath();
-    const step=Math.max(1,Math.floor(timeData.length/usable));
-    let first=true;
-    for(let x=0;x<usable;x++){
-      const idx=(startIndex+Math.min(visibleSamples-1,Math.floor(x/usable*visibleSamples)))%rollingWave.length;
-      const v=rollingWave[idx],y=top+(1-v)/2*(bottom-top);
-      if(first){waveCtx.moveTo(m.l+x,y);first=false}else waveCtx.lineTo(m.l+x,y);
-    }
-    waveCtx.strokeStyle='#00ff72';waveCtx.lineWidth=1.7;waveCtx.shadowColor='#00ff72';waveCtx.shadowBlur=4;waveCtx.stroke();waveCtx.shadowBlur=0;
-  }
-  function tick(){
-    if(!analyser || paused)return;
-    analyser.getFloatFrequencyData(freqData);analyser.getByteTimeDomainData(timeData);
-    const pushCount=Math.min(1024,timeData.length);
-    for(let j=timeData.length-pushCount;j<timeData.length;j++){rollingWave[rollingWrite]=timeData[j]/128-1;rollingWrite=(rollingWrite+1)%rollingWave.length;}
-    if(holdData){for(let i=0;i<freqData.length;i++)holdData[i]=Math.max(holdData[i],freqData[i]);}
-    drawSpectrum();drawWave();raf=requestAnimationFrame(tick);
-  }
-  async function start(){
-    paused=false;rollingWave.fill(0);rollingWrite=0;spectrumOffset=0;timeOffset=0;
-    try{
-      $('startBtn').disabled=true;$('startBtn').textContent='接続中…';
-      stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
-      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-      await audioCtx.resume();latestSampleRate=audioCtx.sampleRate;
-      source=audioCtx.createMediaStreamSource(stream);analyser=audioCtx.createAnalyser();
-      analyser.fftSize=FIXED_FFT_SIZE;analyser.smoothingTimeConstant=.65;analyser.minDecibels=-120;analyser.maxDecibels=0;
-      source.connect(analyser);
-      freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);
-      $('startBtn').disabled=false;$('startBtn').textContent='■ 停止（リセット）';
-      tick();
-    }catch(e){
-      $('startBtn').textContent='▶ 開始';$('startBtn').disabled=false;
-      alert('マイクに接続できませんでした。ブラウザーのマイク使用許可と、HTTPSまたはlocalhostで開いていることを確認してください。\\n\\n'+e.message);
-    }
-  }
-  async function stop(){
-    paused=false;
-    cancelAnimationFrame(raf);raf=0;
-    if(stream)stream.getTracks().forEach(t=>t.stop());
-    if(audioCtx)await audioCtx.close();
-    stream=null;audioCtx=null;source=null;analyser=null;freqData=null;timeData=null;holdData=null;
-    $('startBtn').disabled=false;$('startBtn').textContent='▶ 開始';
-    drawSpectrum();drawWave();
-  }
-  $('startBtn').addEventListener('click',()=>{if(!analyser)start();});
-  function toggleCapture(){
-    if(!analyser){start();return;}
-    if(paused){paused=false;tick();}else{paused=true;cancelAnimationFrame(raf);raf=0;}
-  }
-  $('fftSize').addEventListener('change',()=>{
-    if(analyser){analyser.fftSize=FIXED_FFT_SIZE;freqData=new Float32Array(analyser.frequencyBinCount);timeData=new Uint8Array(analyser.fftSize);holdData=new Float32Array(analyser.frequencyBinCount);holdData.fill(-Infinity);}
-    drawSpectrum();drawWave();
-  });
-  $('freqRange').addEventListener('input',()=>{spectrumOffset=0;$('freqRangeValue').textContent=Number($('freqRange').value)>=1000?(Number($('freqRange').value)/1000)+' kHz':$('freqRange').value+' Hz';drawSpectrum();});
-  $('timeRange').addEventListener('input',()=>{timeOffset=0;$('timeRangeValue').textContent=$('timeRange').value+' ms';drawWave();});
+const $ = id => document.getElementById(id);
+const canvas = $("wave");
+const ctx = canvas.getContext("2d");
 
-  function setupSwipe(canvas, slider, valueLabel, unit){
-    let startX=null,startY=null,lastX=null,moved=false;
-    canvas.addEventListener('pointerdown',e=>{
-      startX=lastX=e.clientX;startY=e.clientY;moved=false;
-      if(canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
-    });
-    canvas.addEventListener('pointermove',e=>{
-      if(startX===null)return;
-      const dx=e.clientX-lastX, totalX=e.clientX-startX, totalY=e.clientY-startY;
-      if(Math.abs(totalX)>8 && Math.abs(totalX)>Math.abs(totalY))moved=true;
-      if(moved){
-        const rect=canvas.getBoundingClientRect(), fraction=-dx/Math.max(1,rect.width);
-        if(slider.id==='freqRange'){
-          const maxF=Math.min(20000,latestSampleRate/2),span=Number(slider.value);
-          spectrumOffset=Math.max(0,Math.min(Math.max(0,maxF-span),spectrumOffset+fraction*span));
-          drawSpectrum();
-        }else{
-          const span=Number(slider.value),maxStart=Math.max(0,2000-span);
-          timeOffset=Math.max(0,Math.min(maxStart,timeOffset+fraction*span));
-          drawWave();
-        }
-      }
-      lastX=e.clientX;
-    });
-    const finish=e=>{
-      if(startX===null)return;
-      const dx=e.clientX-startX,dy=e.clientY-startY;
-      if(!moved && Math.abs(dx)<=18 && Math.abs(dy)<=18)toggleCapture();
-      startX=null;startY=null;lastX=null;moved=false;
-    };
-    canvas.addEventListener('pointerup',finish);
-    canvas.addEventListener('pointercancel',()=>{startX=null;startY=null;lastX=null;moved=false;});
+let audioContext = null;
+let stream = null;
+let source = null;
+let processor = null;
+let silentGain = null;
+let running = false;
+let sampleCount = 0;
+let lastCrossing = null;
+let crossings = [];
+let displayFrequency = null;
+
+function drawWave(data) {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = "#34495e";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#35d0ba";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+
+  const step = Math.max(1, Math.floor(data.length / w));
+  for (let x = 0; x < w; x++) {
+    const i = Math.min(data.length - 1, x * step);
+    const y = h / 2 - data[i] * h * 0.42;
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
-  setupSwipe(specCanvas,$('freqRange'),$('freqRangeValue'),'Hz');
-  setupSwipe(waveCanvas,$('timeRange'),$('timeRangeValue'),'ms');
-  // 両グラフともタップで開始・一時停止を切り替える。スワイプは表示範囲移動。
-  window.addEventListener('resize',()=>{drawSpectrum();drawWave();});
-  drawSpectrum();drawWave();
-})();
+  ctx.stroke();
+}
+
+function processAudio(event) {
+  if (!running) return;
+
+  const data = event.inputBuffer.getChannelData(0);
+  let min = Infinity, max = -Infinity;
+
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] < min) min = data[i];
+    if (data[i] > max) max = data[i];
+  }
+
+  const peakToPeak = max - min;
+  $("level").textContent =
+    "入力振幅（正規化）： " + peakToPeak.toFixed(3);
+
+  drawWave(data);
+
+  // 信号が小さすぎる場合は周波数を計算しない
+  if (peakToPeak < 0.015) {
+    $("status").textContent =
+      "信号が小さいか、入力が届いていません。";
+    sampleCount += data.length;
+    return;
+  }
+
+  // 各ブロックの最小値・最大値の中間をしきい値とする
+  const threshold = (min + max) / 2;
+  const found = [];
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i - 1] < threshold &&
+        data[i] >= threshold) {
+      const dy = data[i] - data[i - 1];
+      const fraction = dy !== 0
+        ? (threshold - data[i - 1]) / dy : 0;
+
+      found.push(sampleCount + i - 1 + fraction);
+    }
+  }
+
+  for (const crossing of found) {
+    if (lastCrossing !== null) {
+      const periodSamples = crossing - lastCrossing;
+      const hz = audioContext.sampleRate / periodSamples;
+
+      // 想定する555の発振帯域だけを採用
+      if (hz >= 100 && hz <= 6000) {
+        crossings.push({ sample: crossing, hz });
+      }
+    }
+    lastCrossing = crossing;
+  }
+
+  // 直近の周期を複数まとめて平均する
+  const now = sampleCount + data.length;
+  crossings = crossings.filter(
+    c => now - c.sample < audioContext.sampleRate * 0.8
+  );
+
+  if (crossings.length >= 3) {
+    const first = crossings[0].sample;
+    const last = crossings[crossings.length - 1].sample;
+    const cycles = crossings.length;
+    const hz = audioContext.sampleRate * (cycles - 1) / (last - first);
+
+    if (Number.isFinite(hz) && hz >= 100 && hz <= 6000) {
+      displayFrequency = hz;
+      $("freq").textContent = hz.toFixed(1);
+      $("status").textContent = "周波数を検出しています。";
+    }
+  }
+
+  sampleCount += data.length;
+}
+
+async function startMeasurement() {
+  if (running) return;
+
+  try {
+    $("status").textContent = "マイク入力を準備しています…";
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: { ideal: 1 },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      },
+      video: false
+    });
+
+    audioContext = new AudioContext();
+    await audioContext.resume();
+
+    source = audioContext.createMediaStreamSource(stream);
+    processor = audioContext.createScriptProcessor(4096, 1, 1);
+    silentGain = audioContext.createGain();
+    silentGain.gain.value = 0;
+
+    processor.onaudioprocess = processAudio;
+
+    source.connect(processor);
+    processor.connect(silentGain);
+    silentGain.connect(audioContext.destination);
+
+    running = true;
+    sampleCount = 0;
+    lastCrossing = null;
+    crossings = [];
+    displayFrequency = null;
+
+    $("freq").textContent = "---.-";
+    $("start").disabled = true;
+    $("stop").disabled = false;
+    $("info").textContent =
+      "サンプリング周波数：" +
+      audioContext.sampleRate.toLocaleString() + " Hz";
+
+    $("status").textContent =
+      "入力を取得中です。555の発振回路を接続してください。";
+
+  } catch (error) {
+    stopMeasurement();
+    $("status").textContent =
+      "入力を開始できませんでした：" + error.message +
+      "。HTTPS、マイク許可、変換アダプターを確認してください。";
+  }
+}
+
+function stopMeasurement() {
+  running = false;
+
+  if (processor) {
+    processor.onaudioprocess = null;
+    processor.disconnect();
+    processor = null;
+  }
+  if (source) {
+    source.disconnect();
+    source = null;
+  }
+  if (silentGain) {
+    silentGain.disconnect();
+    silentGain = null;
+  }
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+
+  $("start").disabled = false;
+  $("stop").disabled = true;
+}
+
+$("start").addEventListener("click", startMeasurement);
+$("stop").addEventListener("click", stopMeasurement);
+
+window.addEventListener("pagehide", stopMeasurement);
 </script>
 </body>
 </html>
